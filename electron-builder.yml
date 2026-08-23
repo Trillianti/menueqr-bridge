@@ -1,0 +1,35 @@
+appId: de.menueqr.bridge
+productName: MenüQR Bridge
+copyright: Copyright © 2026 MenüQR
+directories:
+  output: release
+files:
+  - dist/**/*
+  - package.json
+asar: true
+extraResources:
+  - from: assets/menueqr-logo.svg
+    to: bridge-logo.svg
+  - from: assets/menueqr-tray-template.png
+    to: menueqr-tray-template.png
+  - from: assets/menueqr-tray-windows.png
+    to: menueqr-tray-windows.png
+  - from: assets/menueqr-dock-icon.svg
+    to: menueqr-dock-icon.svg
+win:
+  icon: assets/app-icon.png
+  target:
+    - target: nsis
+      arch:
+        - x64
+artifactName: ${productName}-${version}-Setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: false
+  createStartMenuShortcut: true
+  shortcutName: MenüQR Bridge
+  include: installer/installer.nsh
+  deleteAppDataOnUninstall: false

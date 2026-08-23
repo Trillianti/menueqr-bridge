@@ -1,0 +1,32 @@
+export const BRIDGE_FOUNDATION_CHANNELS = {
+  getRuntimeSnapshot: "bridge:foundation:get-runtime-snapshot",
+  getShellSnapshot: "bridge:shell:get-snapshot",
+  showSettings: "bridge:shell:show-settings",
+  setAutostart: "bridge:shell:set-autostart",
+  setPaused: "bridge:shell:set-paused",
+  getPairingSnapshot: "bridge:pairing:get-snapshot",
+  beginPairing: "bridge:pairing:begin",
+  openPairingBrowser: "bridge:pairing:open-browser",
+  disconnect: "bridge:pairing:disconnect",
+  getDeviceRuntimeSnapshot: "bridge:runtime:get-snapshot",
+  getIntegrationsSnapshot: "bridge:integrations:get-snapshot",
+  getDevelopmentSnapshot: "bridge:development:get-snapshot",
+  getPrinterSnapshot: "bridge:printer:get-snapshot",
+  savePrinterConfiguration: "bridge:printer:save-configuration",
+  deletePrinterConfiguration: "bridge:printer:delete-configuration",
+  activatePrinterConfiguration: "bridge:printer:activate-configuration",
+  testPrinterConnection: "bridge:printer:test-connection",
+  testPrinterPrint: "bridge:printer:test-print",
+  discoverPrinters: "bridge:printer:discover",
+  selectDiscoveredPrinter: "bridge:printer:select-discovered",
+  testDiscoveredPrinter: "bridge:printer:test-discovered",
+  confirmDiscoveredPrinter: "bridge:printer:confirm-discovered",
+  requestPrinterSupport: "bridge:printer:request-support",
+  exportDiagnostics: "bridge:diagnostics:export",
+  getUpdateSnapshot: "bridge:update:get-snapshot",
+  checkForUpdates: "bridge:update:check",
+  installUpdate: "bridge:update:install",
+} as const;
+
+export type BridgeFoundationChannel =
+  (typeof BRIDGE_FOUNDATION_CHANNELS)[keyof typeof BRIDGE_FOUNDATION_CHANNELS];

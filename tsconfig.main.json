@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": [
+    "src/main/**/*.ts",
+    "src/core/**/*.ts",
+    "src/contracts/**/*.ts",
+    "src/integrations/**/*.ts"
+  ]
+}

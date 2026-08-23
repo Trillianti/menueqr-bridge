@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MenüQR Virtual Printer</title>
+    <style>
+      :root { color: #2b2622; font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif; background: #f7f6f2; }
+      * { box-sizing: border-box; }
+      body { margin: 0; min-height: 100dvh; }
+      main { margin: 0 auto; max-width: 48rem; padding: 2rem clamp(1rem, 4vw, 2.5rem); }
+      header { align-items: flex-start; display: flex; gap: 1rem; justify-content: space-between; margin-bottom: 1.6rem; }
+      h1 { font-size: 1.6rem; letter-spacing: -0.045em; margin: 0 0 0.35rem; }
+      header p { color: #706861; line-height: 1.45; margin: 0; max-width: 31rem; }
+      button { background: transparent; border: 1px solid #d9d1c7; border-radius: 0.7rem; color: #514940; cursor: pointer; font: inherit; font-weight: 650; padding: 0.55rem 0.75rem; }
+      button:hover { background: #eee9e2; }
+      .status { align-items: center; background: #fffdf9; border: 1px solid #e9e3da; border-radius: 1rem; display: flex; gap: 0.7rem; padding: 0.95rem 1rem; }
+      .dot { background: #2f7b48; border-radius: 50%; box-shadow: 0 0 0 0.25rem rgb(47 123 72 / 12%); height: 0.55rem; width: 0.55rem; }
+      .status[data-error="true"] .dot { background: #b74135; box-shadow: 0 0 0 0.25rem rgb(183 65 53 / 12%); }
+      .status strong, .status span { display: block; }
+      .status strong { font-size: 0.9rem; }
+      .status span { color: #706861; font-size: 0.8rem; margin-top: 0.15rem; }
+      .address { color: #b54d20; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.84rem; margin: 1.15rem 0 0; }
+      .section-heading { align-items: center; display: flex; justify-content: space-between; margin: 2rem 0 0.75rem; }
+      h2 { font-size: 1rem; letter-spacing: -0.025em; margin: 0; }
+      .empty { border: 1px dashed #d9d1c7; border-radius: 1rem; color: #706861; padding: 1.3rem; text-align: center; }
+      .jobs { display: grid; gap: 0.75rem; }
+      article { background: #fffdf9; border: 1px solid #e9e3da; border-radius: 1rem; padding: 1rem; }
+      .meta { color: #706861; display: flex; font-size: 0.78rem; justify-content: space-between; margin-bottom: 0.75rem; }
+      pre { background: #f4f0ea; border-radius: 0.7rem; color: #37302a; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.78rem; line-height: 1.45; margin: 0; overflow: auto; padding: 0.85rem; white-space: pre-wrap; }
+      @media (max-width: 34rem) { header { flex-direction: column; } }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header><div><h1>MenüQR Virtual Printer</h1><p id="description">Empfängt Testbons und zeigt ihren Inhalt an. Es wird nichts physisch gedruckt.</p></div><button id="clear" type="button">Liste leeren</button></header>
+      <section class="status" id="status"><span class="dot"></span><div><strong id="status-title">Virtueller Drucker wird gestartet</strong><span id="status-copy"></span></div></section>
+      <p class="address" id="address"></p>
+      <section><div class="section-heading"><h2>Empfangene Bons</h2><span id="count"></span></div><div class="jobs" id="jobs"></div></section>
+    </main>
+    <script>
+      const status = document.querySelector("#status");
+      const description = document.querySelector("#description");
+      const statusTitle = document.querySelector("#status-title");
+      const statusCopy = document.querySelector("#status-copy");
+      const address = document.querySelector("#address");
+      const count = document.querySelector("#count");
+      const jobs = document.querySelector("#jobs");
+      const formatTime = (iso) => new Intl.DateTimeFormat("de-DE", { dateStyle: "medium", timeStyle: "medium" }).format(new Date(iso));
+      function render(state) {
+        const failed = Boolean(state.error);
+        status.dataset.error = String(failed);
+        description.textContent = `Empfängt Testbons auf Port ${state.port} und zeigt ihren Inhalt an. Es wird nichts physisch gedruckt.`;
+        statusTitle.textContent = failed ? "Virtueller Drucker nicht verfügbar" : "Virtueller Drucker ist bereit";
+        statusCopy.textContent = failed ? state.error : `Bridge kann sich auf Port ${state.port} verbinden.`;
+        address.textContent = state.addresses.length ? `Für Bridge verwenden: ${state.addresses.map((ip) => `${ip}:${state.port}`).join(" · ")}` : "Keine private LAN-Adresse gefunden.";
+        count.textContent = state.jobs.length ? `${state.jobs.length} empfangen` : "";
+        jobs.replaceChildren();
+        if (!state.jobs.length) {
+          const empty = document.createElement("p");
+          empty.className = "empty";
+          empty.textContent = "Noch kein Bon empfangen. In Bridge den Drucker suchen oder einen Bestätigungsbon senden.";
+          jobs.append(empty);
+          return;
+        }
+        for (const job of state.jobs) {
+          const card = document.createElement("article");
+          const meta = document.createElement("div");
+          const time = document.createElement("span");
+          const bytes = document.createElement("span");
+          const preview = document.createElement("pre");
+          meta.className = "meta";
+          time.textContent = formatTime(job.receivedAt);
+          bytes.textContent = `${job.bytes} Bytes`;
+          preview.textContent = job.preview;
+          meta.append(time, bytes);
+          card.append(meta, preview);
+          jobs.append(card);
+        }
+      }
+      document.querySelector("#clear").addEventListener("click", () => window.virtualPrinter.clear());
+      window.virtualPrinter.onState(render);
+      window.virtualPrinter.getSnapshot().then(render);
+    </script>
+  </body>
+</html>
