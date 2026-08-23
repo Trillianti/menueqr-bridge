@@ -15,7 +15,7 @@ guaranteed by this repository.
 - [x] CI uses GitHub-hosted runners and uploads bounded build artifacts.
 - [x] Unsigned public releases are isolated from the production update CDN.
 - [ ] Repository members and approvers are confirmed with GitHub MFA enabled.
-- [ ] First unsigned release is published and documented.
+- [x] First unsigned release `bridge-v0.1.1` is published and documented.
 - [ ] SignPath Foundation application is submitted and approved.
 - [ ] SignPath GitHub App is installed for this repository.
 - [ ] Trusted Build System GitHub.com is linked to the SignPath project.
