@@ -94,9 +94,12 @@ Packaged releases require HTTPS and do not accept this development override.
 ## Releases and signing
 
 Release builds are built from the public tagged source and tested on
-GitHub-hosted Windows runners. The first public release is intentionally unsigned while the project
-applies for free open-source code signing through SignPath Foundation. Windows
-may show a SmartScreen warning for unsigned builds.
+GitHub-hosted Windows runners. The first public release is intentionally
+unsigned while the project applies for free open-source code signing through
+SignPath Foundation. Windows may show a SmartScreen warning for unsigned builds.
+
+Unsigned open-source releases are published only to GitHub Releases and are not
+sent to the production automatic-update CDN.
 
 After approval, the release workflow will submit its GitHub-hosted build to
 SignPath with origin verification before publishing it. The governing policy is

@@ -37,10 +37,9 @@ describe("Windows update release configuration", () => {
   it("keeps CI separate from the protected automatic release pipeline", () => {
     expect(workflow).not.toContain("publish-windows-update:");
     expect(releaseWorkflow).toContain("types: [published]");
-    expect(releaseWorkflow).toContain("environment: bridge-update-release");
     expect(releaseWorkflow).toContain("resolve-release-intent.mjs");
-    expect(releaseWorkflow).toContain("npm run publish:updates");
-    expect(releaseWorkflow).toContain("npm run verify:published-updates");
+    expect(releaseWorkflow).toContain("npm run package:win");
+    expect(releaseWorkflow).not.toContain("npm run publish:updates");
     expect(releaseWorkflow).toContain("gh release upload");
     expect(publisher).toContain('"latest.yml"');
     expect(publisher).toContain(".blockmap");

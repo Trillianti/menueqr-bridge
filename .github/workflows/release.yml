@@ -42,12 +42,11 @@ jobs:
         run: echo "${{ steps.intent.outputs.reason }}"
 
   publish-update:
-    name: Publish unsigned Windows update
+    name: Publish unsigned Windows release
     needs: release-intent
     if: needs.release-intent.outputs.publish == 'true'
     runs-on: windows-latest
     timeout-minutes: 35
-    environment: bridge-update-release
     permissions:
       contents: write
     steps:
@@ -76,18 +75,17 @@ jobs:
           RUN_ELECTRON_E2E: "1"
         run: npm run test:e2e
 
-      - name: Build unsigned NSIS update and metadata
+      - name: Build unsigned NSIS installer
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-          MENUEQR_BRIDGE_UPDATE_PUBLIC_URL: ${{ vars.MENUEQR_BRIDGE_UPDATE_PUBLIC_URL }}
-        run: npm run package:win:update
+        run: npm run package:win
 
       - name: Write installer checksum
         shell: pwsh
         run: |
           Get-FileHash release/*-Setup.exe -Algorithm SHA256 | ForEach-Object { "{0} *{1}" -f $_.Hash.ToLower(), $_.Path.Split([IO.Path]::DirectorySeparatorChar)[-1] } | Set-Content -NoNewline release/SHA256SUMS.txt
 
-      - name: Create GitHub Release and attach update files
+      - name: Create GitHub Release and attach installer
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -101,12 +99,10 @@ jobs:
           }
 
           $assets = Get-ChildItem release -File | Where-Object {
-            $_.Name -eq "latest.yml" -or
             $_.Name -eq "SHA256SUMS.txt" -or
-            $_.Name -like "*-Setup.exe" -or
-            $_.Name -like "*-Setup.exe.blockmap"
+            $_.Name -like "*-Setup.exe"
           }
-          if ($assets.Count -ne 4) { throw "Expected exactly four Windows update assets." }
+          if ($assets.Count -ne 2) { throw "Expected the installer and checksum." }
 
           $existing = gh release view $env:BRIDGE_RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json assets | ConvertFrom-Json
           $duplicates = $assets | Where-Object { $existing.assets.name -contains $_.Name }
@@ -115,21 +111,6 @@ jobs:
           gh release upload $env:BRIDGE_RELEASE_TAG @($assets.FullName) --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-      - name: Publish update files to Cloudflare R2 CDN
-        env:
-          MENUEQR_BRIDGE_UPDATE_PUBLIC_URL: ${{ vars.MENUEQR_BRIDGE_UPDATE_PUBLIC_URL }}
-          MENUEQR_BRIDGE_UPDATE_R2_ENDPOINT: ${{ secrets.MENUEQR_BRIDGE_UPDATE_R2_ENDPOINT }}
-          MENUEQR_BRIDGE_UPDATE_R2_BUCKET: ${{ secrets.MENUEQR_BRIDGE_UPDATE_R2_BUCKET }}
-          MENUEQR_BRIDGE_UPDATE_R2_ACCESS_KEY_ID: ${{ secrets.MENUEQR_BRIDGE_UPDATE_R2_ACCESS_KEY_ID }}
-          MENUEQR_BRIDGE_UPDATE_R2_SECRET_ACCESS_KEY: ${{ secrets.MENUEQR_BRIDGE_UPDATE_R2_SECRET_ACCESS_KEY }}
-          MENUEQR_BRIDGE_UPDATE_R2_PREFIX: ${{ vars.MENUEQR_BRIDGE_UPDATE_R2_PREFIX }}
-        run: npm run publish:updates
-
-      - name: Verify public CDN channel
-        env:
-          MENUEQR_BRIDGE_UPDATE_PUBLIC_URL: ${{ vars.MENUEQR_BRIDGE_UPDATE_PUBLIC_URL }}
-        run: npm run verify:published-updates
-
       - name: Retain release evidence
         if: success()
         uses: actions/upload-artifact@v4
@@ -137,8 +118,6 @@ jobs:
           name: menueqr-bridge-update-${{ needs.release-intent.outputs.version }}-${{ github.sha }}
           path: |
             release/*-Setup.exe
-            release/*-Setup.exe.blockmap
-            release/latest.yml
             release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 90
