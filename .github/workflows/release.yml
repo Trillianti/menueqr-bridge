@@ -113,7 +113,7 @@ jobs:
 
       - name: Retain release evidence
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: menueqr-bridge-update-${{ needs.release-intent.outputs.version }}-${{ github.sha }}
           path: |
