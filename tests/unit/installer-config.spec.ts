@@ -30,6 +30,9 @@ describe("Windows installer configuration", () => {
     expect(builderConfig).toContain("allowElevation: false");
     expect(builderConfig).toContain("include: installer/installer.nsh");
     expect(builderConfig).toContain("deleteAppDataOnUninstall: false");
+    expect(builderConfig).toContain(
+      "artifactName: MenueQR-Bridge-${version}-Setup.${ext}",
+    );
   });
 
   it("asks explicitly about autostart and local-data removal", () => {
