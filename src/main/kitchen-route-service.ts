@@ -26,6 +26,7 @@ import {
   StarTsp1000LanAdapter,
   type StarTsp1000LanConfiguration,
 } from "../integrations/printers/star-tsp1000-lan/star-tsp1000-lan";
+import type { BonLayoutProfile } from "../integrations/kitchen-bon";
 import { LocalAdapterConfigFileStore } from "./local-adapter-config-store";
 import type { DiagnosticLogEvent } from "./diagnostic-log";
 import { LocalPrinterHealthStore } from "./local-printer-health-store";
@@ -163,7 +164,9 @@ export class KitchenRouteService implements JobExecutionPort {
     return this.snapshot();
   }
 
-  async activateConfiguration(printerId: string): Promise<LocalPrinterSnapshot> {
+  async activateConfiguration(
+    printerId: string,
+  ): Promise<LocalPrinterSnapshot> {
     await this.configurations.activateProfile(this.adapter, printerId);
     return this.snapshot();
   }
@@ -278,12 +281,16 @@ export class KitchenRouteService implements JobExecutionPort {
 
   async confirmSelectedDiscoveredPrinter(
     printerId?: string,
+    bonLayoutProfile: BonLayoutProfile = "compact",
   ): Promise<LocalPrinterSnapshot> {
     const candidate = this.requireSelectedCandidate();
     if (this.testedCandidateId !== candidate.id) {
       throw new Error("PRINTER_DISCOVERY_CONFIRMATION_REQUIRED");
     }
-    const configuration = await this.configurationForCandidate(candidate);
+    const configuration = this.adapter.validateConfiguration({
+      ...(await this.configurationForCandidate(candidate)),
+      bonLayoutProfile,
+    });
     const id = printerId ?? randomUUID();
     const current = await this.configurations.profiles(this.adapter);
     await this.configurations.writeProfile(this.adapter, id, configuration, {
@@ -403,6 +410,7 @@ export class KitchenRouteService implements JobExecutionPort {
         paperWidthMm: configuration.paperWidthMm,
         encoding: configuration.encoding,
         cutAfterPrint: configuration.cutAfterPrint,
+        layoutProfile: configuration.bonLayoutProfile,
       },
       this.ledger,
       this.completion,
@@ -493,8 +501,7 @@ export class KitchenRouteService implements JobExecutionPort {
     const previous = this.healthByPrinterId.get(printerId);
     const failed = health.status !== "ready";
     if (failed && debounceKnownFailure && previous?.status === "ready") {
-      const failures =
-        (this.consecutiveHealthFailures.get(printerId) ?? 0) + 1;
+      const failures = (this.consecutiveHealthFailures.get(printerId) ?? 0) + 1;
       this.consecutiveHealthFailures.set(printerId, failures);
       if (failures < 2) return previous;
     } else {

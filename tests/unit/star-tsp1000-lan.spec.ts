@@ -16,6 +16,7 @@ describe("Star TSP1000 LAN configuration", () => {
     connectTimeoutMs: 3_000,
     writeTimeoutMs: 5_000,
     cutAfterPrint: true,
+    bonLayoutProfile: "detailed" as const,
   };
 
   it("allows private LAN addresses and local hostnames but rejects unsafe targets", () => {
@@ -27,6 +28,25 @@ describe("Star TSP1000 LAN configuration", () => {
     expect(isAllowedLocalHost("http://192.168.1.20")).toBe(false);
     expect(() =>
       adapter.validateConfiguration({ ...valid, host: "0.0.0.0" }),
+    ).toThrow("INVALID_CONFIGURATION");
+  });
+
+  it("defaults legacy configurations to detailed and validates explicit bon layouts", () => {
+    const { bonLayoutProfile: _profile, ...legacy } = valid;
+    expect(adapter.validateConfiguration(legacy).bonLayoutProfile).toBe(
+      "detailed",
+    );
+    expect(
+      adapter.validateConfiguration({
+        ...valid,
+        bonLayoutProfile: "compact",
+      }).bonLayoutProfile,
+    ).toBe("compact");
+    expect(() =>
+      adapter.validateConfiguration({
+        ...valid,
+        bonLayoutProfile: "unknown",
+      }),
     ).toThrow("INVALID_CONFIGURATION");
   });
 

@@ -272,10 +272,13 @@ function registerIpc(
     assertSettingsSender(event.sender.id);
     return pairing.begin();
   });
-  ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.openPairingBrowser, async (event) => {
-    assertSettingsSender(event.sender.id);
-    await pairing.openPairingBrowser();
-  });
+  ipcMain.handle(
+    BRIDGE_FOUNDATION_CHANNELS.openPairingBrowser,
+    async (event) => {
+      assertSettingsSender(event.sender.id);
+      await pairing.openPairingBrowser();
+    },
+  );
   ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.disconnect, async (event) => {
     assertSettingsSender(event.sender.id);
     runtime.stop();
@@ -307,7 +310,8 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.savePrinterConfiguration,
     async (event, request: unknown) => {
       assertSettingsSender(event.sender.id);
-      const { configuration, printerId } = validatePrinterConfigurationRequest(request);
+      const { configuration, printerId } =
+        validatePrinterConfigurationRequest(request);
       const snapshot = await route.saveConfiguration(configuration, printerId);
       await maybeStartRuntime();
       return snapshot;
@@ -317,7 +321,9 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.deletePrinterConfiguration,
     async (event, printerId: unknown) => {
       assertSettingsSender(event.sender.id);
-      const snapshot = await route.deleteConfiguration(validatePrinterId(printerId));
+      const snapshot = await route.deleteConfiguration(
+        validatePrinterId(printerId),
+      );
       await maybeStartRuntime();
       return snapshot;
     },
@@ -326,7 +332,9 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.activatePrinterConfiguration,
     async (event, printerId: unknown) => {
       assertSettingsSender(event.sender.id);
-      const snapshot = await route.activateConfiguration(validatePrinterId(printerId));
+      const snapshot = await route.activateConfiguration(
+        validatePrinterId(printerId),
+      );
       await maybeStartRuntime();
       return snapshot;
     },
@@ -371,10 +379,13 @@ function registerIpc(
   );
   ipcMain.handle(
     BRIDGE_FOUNDATION_CHANNELS.confirmDiscoveredPrinter,
-    async (event, printerId: unknown) => {
+    async (event, request: unknown) => {
       assertSettingsSender(event.sender.id);
+      const { printerId, bonLayoutProfile } =
+        validateDiscoveredPrinterConfirmation(request);
       const snapshot = await route.confirmSelectedDiscoveredPrinter(
-        validateOptionalPrinterId(printerId),
+        printerId,
+        bonLayoutProfile,
       );
       await maybeStartRuntime();
       return snapshot;
@@ -384,7 +395,9 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.requestPrinterSupport,
     async (event, request: unknown) => {
       assertSettingsSender(event.sender.id);
-      return pairing.requestPrinterSupport(validatePrinterSupportRequest(request));
+      return pairing.requestPrinterSupport(
+        validatePrinterSupportRequest(request),
+      );
     },
   );
   ipcMain.handle(
@@ -406,6 +419,30 @@ function registerIpc(
     assertSettingsSender(event.sender.id);
     return updates.install();
   });
+}
+
+function validateDiscoveredPrinterConfirmation(value: unknown): {
+  printerId?: string;
+  bonLayoutProfile: "compact" | "kitchen" | "detailed";
+} {
+  if (!value || typeof value !== "object") {
+    throw new Error("Discovered printer confirmation is invalid.");
+  }
+  const request = value as {
+    printerId?: unknown;
+    bonLayoutProfile?: unknown;
+  };
+  if (
+    request.bonLayoutProfile !== "compact" &&
+    request.bonLayoutProfile !== "kitchen" &&
+    request.bonLayoutProfile !== "detailed"
+  ) {
+    throw new Error("Bon layout profile is invalid.");
+  }
+  return {
+    printerId: validateOptionalPrinterId(request.printerId),
+    bonLayoutProfile: request.bonLayoutProfile,
+  };
 }
 
 function validatePrinterConfigurationRequest(value: unknown): {
@@ -482,8 +519,7 @@ if (!app.requestSingleInstanceLock()) {
     );
     const autostart = new AutostartAdapter(app);
     const localDevelopment =
-      !app.isPackaged &&
-      process.env.MENUEQR_BRIDGE_LOCAL_DEVELOPMENT === "1";
+      !app.isPackaged && process.env.MENUEQR_BRIDGE_LOCAL_DEVELOPMENT === "1";
     const apiBaseUrl = validateBridgeApiBaseUrl(
       process.env.MENUEQR_BRIDGE_API_URL ?? "https://menueqr.de/api",
       { allowInsecureLocal: localDevelopment },
@@ -528,8 +564,7 @@ if (!app.requestSingleInstanceLock()) {
       if (process.platform !== "win32" || !Notification.isSupported()) return;
       const notification = new Notification({
         title: "MenüQR Bridge: Druckerproblem",
-        body:
-          "Der aktive Küchendrucker ist nicht bereit. Öffnen Sie Bridge und prüfen Sie die Verbindung.",
+        body: "Der aktive Küchendrucker ist nicht bereit. Öffnen Sie Bridge und prüfen Sie die Verbindung.",
       });
       notification.on("click", showSettings);
       notification.show();

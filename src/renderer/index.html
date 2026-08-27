@@ -169,6 +169,22 @@
       .printer-details-status { color: #756d65; font-size: 0.82rem; line-height: 1.4; margin: 0.8rem 0 0; }
       .printer-details-status[data-tone="success"] { color: #267140; }
       .printer-details-status[data-tone="attention"] { color: #a34d25; }
+      .bon-layout-section { border-top: 1px solid #eee8df; margin-top: 0.15rem; padding-top: 1rem; }
+      .bon-layout-heading { align-items: baseline; display: flex; gap: 0.75rem; justify-content: space-between; margin-bottom: 0.7rem; }
+      .bon-layout-heading strong { color: #443c34; font-size: 0.9rem; letter-spacing: -0.02em; }
+      .bon-layout-heading span { color: #7b7269; font-size: 0.76rem; }
+      .bon-layout-options { display: grid; gap: 0.65rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .bon-layout-option { cursor: pointer; display: grid; gap: 0.55rem; min-width: 0; }
+      .bon-layout-option > input { height: 1px; opacity: 0; pointer-events: none; position: absolute; width: 1px; }
+      .bon-layout-card { background: #fbfaf7; border: 1px solid #e2ddd5; border-radius: 0.75rem; display: grid; gap: 0.55rem; min-height: 100%; padding: 0.7rem; transition: background 160ms ease, border-color 160ms ease; }
+      .bon-layout-option:hover .bon-layout-card { border-color: #cbbfb4; }
+      .bon-layout-option > input:checked + .bon-layout-card { background: #fff7f1; border-color: #df5b24; }
+      .bon-layout-option > input:focus-visible + .bon-layout-card { outline: 3px solid rgb(229 93 34 / 30%); outline-offset: 2px; }
+      .bon-layout-card-header { display: flex; gap: 0.4rem; justify-content: space-between; }
+      .bon-layout-card-header strong { color: #3c352f; font-size: 0.8rem; }
+      .bon-layout-recommended { color: #a7461e; font-size: 0.66rem; font-weight: 700; }
+      .bon-preview { background: #fff; border: 1px solid #e8e3dc; color: #312d29; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.4rem; font-weight: 500; line-height: 1.35; margin: 0; min-height: 8.6rem; overflow: hidden; padding: 0.55rem; white-space: pre; }
+      .printer-details-form .printer-grid { margin-top: 1rem; }
       .device-type-picker { align-content: start; display: grid; gap: 0.65rem; grid-template-columns: 1fr; }
       .device-type-card { align-items: center; background: #fffdf9; border: 1px solid #e7e0d7; border-radius: 1rem; display: flex; gap: 0.75rem; min-height: 5.4rem; padding: 0.85rem 0.95rem; }
       .device-type-card[data-state="selected"] { background: #fff8f3; border-color: #df5b24; box-shadow: 0 0.55rem 1.3rem rgb(223 91 36 / 8%); }
@@ -321,6 +337,7 @@
         .printer-setup-card { grid-template-columns: 1fr; }
         .printer-library-header, .printer-setup-header, .printer-discovery-controls, .printer-request-intro { align-items: stretch; flex-direction: column; grid-column: auto; grid-template-columns: 1fr; }
         .printer-details-header, .printer-details-overview { align-items: flex-start; flex-direction: column; }
+        .bon-layout-options { grid-template-columns: 1fr; }
         .printer-details-health { margin-left: 0; }
         .printer-details-actions .button-danger { margin-left: 0; }
         .saved-printer-card { grid-template-columns: 1fr; }
@@ -441,6 +458,48 @@
               <button type="button" class="button-quiet" data-testid="printer-discovery-confirm" disabled>Als Küchendrucker speichern</button>
             </div>
 
+            <section class="bon-layout-section" data-testid="setup-bon-layout">
+              <div class="bon-layout-heading"><strong>Bon-Layout</strong><span>Gleicher Beispielauftrag</span></div>
+              <div class="bon-layout-options">
+                <label class="bon-layout-option"><input type="radio" name="setupBonLayoutProfile" value="compact" checked /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Kompakt</strong><span class="bon-layout-recommended">Empfohlen</span></span><span class="bon-preview">================================
+TISCH 4                    18:42
+Bestellung #1048
+================================
+2 x Schnitzel
+    OHNE ZWIEBELN
+
+1 x Beilagensalat
+================================</span></span></label>
+                <label class="bon-layout-option"><input type="radio" name="setupBonLayoutProfile" value="kitchen" /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Küche Plus</strong></span><span class="bon-preview">================================
+        WEINGUT JÄCKEL
+          BESTELLUNG
+================================
+TISCH 4                    18:42
+Bestellung #1048        23.08.26
+--------------------------------
+2 x Schnitzel
+    OHNE ZWIEBELN
+
+1 x Beilagensalat
+================================</span></span></label>
+                <label class="bon-layout-option"><input type="radio" name="setupBonLayoutProfile" value="detailed" /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Vollständig</strong></span><span class="bon-preview">================================
+        WEINGUT JÄCKEL
+          BESTELLUNG
+================================
+TISCH 4                    18:42
+Bestellung #1048        23.08.26
+--------------------------------
+2 x Schnitzel
+    je 18,00 €           36,00 €
+    OHNE ZWIEBELN
+
+1 x Beilagensalat
+    je 7,50 €             7,50 €
+GESAMT:                  43,50 €
+================================</span></span></label>
+              </div>
+            </section>
+
             <details class="manual-settings" data-testid="manual-printer-settings">
               <summary>Drucker manuell einrichten</summary>
               <p>Nur verwenden, wenn die Suche Ihren Drucker nicht findet.</p>
@@ -493,6 +552,47 @@
           <section class="printer-details-form-panel">
             <h3>Druckereinstellungen</h3>
             <form data-testid="printer-details-form">
+              <section class="bon-layout-section" data-testid="details-bon-layout">
+                <div class="bon-layout-heading"><strong>Bon-Layout</strong><span>Nur Informationen, die Ihre Küche braucht</span></div>
+                <div class="bon-layout-options">
+                  <label class="bon-layout-option"><input type="radio" name="bonLayoutProfile" value="compact" /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Kompakt</strong><span class="bon-layout-recommended">Empfohlen</span></span><span class="bon-preview">================================
+TISCH 4                    18:42
+Bestellung #1048
+================================
+2 x Schnitzel
+    OHNE ZWIEBELN
+
+1 x Beilagensalat
+================================</span></span></label>
+                  <label class="bon-layout-option"><input type="radio" name="bonLayoutProfile" value="kitchen" /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Küche Plus</strong></span><span class="bon-preview">================================
+        WEINGUT JÄCKEL
+          BESTELLUNG
+================================
+TISCH 4                    18:42
+Bestellung #1048        23.08.26
+--------------------------------
+2 x Schnitzel
+    OHNE ZWIEBELN
+
+1 x Beilagensalat
+================================</span></span></label>
+                  <label class="bon-layout-option"><input type="radio" name="bonLayoutProfile" value="detailed" /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Vollständig</strong></span><span class="bon-preview">================================
+        WEINGUT JÄCKEL
+          BESTELLUNG
+================================
+TISCH 4                    18:42
+Bestellung #1048        23.08.26
+--------------------------------
+2 x Schnitzel
+    je 18,00 €           36,00 €
+    OHNE ZWIEBELN
+
+1 x Beilagensalat
+    je 7,50 €             7,50 €
+GESAMT:                  43,50 €
+================================</span></span></label>
+                </div>
+              </section>
               <div class="printer-grid">
                 <label>IP-Adresse oder Druckername<input name="host" required autocomplete="off" /></label>
                 <label>Port<input name="port" type="number" min="1" max="65535" required /></label>

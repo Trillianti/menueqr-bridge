@@ -27,7 +27,10 @@ export type BonRenderOptions = {
   encoding: "cp437" | "cp850" | "windows1252";
   cutAfterPrint: boolean;
   timeZone?: string;
+  layoutProfile?: BonLayoutProfile;
 };
+
+export type BonLayoutProfile = "compact" | "kitchen" | "detailed";
 
 // The public order contract permits 50 items, 600-character item notes, and a
 // 1,200-character order note. Keep the line guard above that valid worst case;
@@ -81,11 +84,19 @@ export function renderKitchenBon(
 
 export function renderKitchenBonLines(
   payload: unknown,
-  options: Pick<BonRenderOptions, "paperWidthMm" | "encoding" | "timeZone">,
+  options: Pick<
+    BonRenderOptions,
+    "paperWidthMm" | "encoding" | "timeZone" | "layoutProfile"
+  >,
 ): string[] {
   const document = buildBonDocument(payload, options.timeZone);
   const width = options.paperWidthMm === 82 ? 34 : 32;
-  return documentLines(document, width, options.encoding);
+  return documentLines(
+    document,
+    width,
+    options.encoding,
+    options.layoutProfile ?? "detailed",
+  );
 }
 
 export function createStaticTestBon(options: BonRenderOptions): Buffer {
@@ -109,6 +120,7 @@ function documentLines(
   document: BonDocument,
   width: number,
   encoding: BonRenderOptions["encoding"],
+  layoutProfile: BonLayoutProfile,
 ): string[] {
   const line = "=".repeat(width);
   const divider = "-".repeat(width);
@@ -119,22 +131,31 @@ function documentLines(
   const lines: string[] = [];
 
   if (document.reprint) lines.push(REPRINT_MARKER, "");
-  lines.push(
-    line,
-    centerLine(restaurantName, width),
-    centerLine(document.title, width),
-    line,
-    "",
-    alignColumns(document.tableLabel, document.localTimeLabel, width),
-    ...metadataLines(
+  if (layoutProfile === "compact") {
+    lines.push(
+      line,
+      alignColumns(document.tableLabel, document.localTimeLabel, width),
       `Bestellung #${printableText(document.orderReference, encoding)}`,
-      document.localDateLabel,
-      width,
-      0,
-    ),
-    "",
-    divider,
-  );
+      line,
+    );
+  } else {
+    lines.push(
+      line,
+      centerLine(restaurantName, width),
+      centerLine(document.title, width),
+      line,
+      "",
+      alignColumns(document.tableLabel, document.localTimeLabel, width),
+      ...metadataLines(
+        `Bestellung #${printableText(document.orderReference, encoding)}`,
+        document.localDateLabel,
+        width,
+        0,
+      ),
+      "",
+      divider,
+    );
+  }
 
   document.lines.forEach((item, index) => {
     lines.push(
@@ -149,13 +170,15 @@ function documentLines(
         ...wrapIndentedText(printableText(item.variation, encoding), width),
       );
     }
-    lines.push(
-      ...priceLines(
-        formatMoney(item.unitPrice, document.currency, encoding),
-        formatMoney(item.lineTotal, document.currency, encoding),
-        width,
-      ),
-    );
+    if (layoutProfile === "detailed") {
+      lines.push(
+        ...priceLines(
+          formatMoney(item.unitPrice, document.currency, encoding),
+          formatMoney(item.lineTotal, document.currency, encoding),
+          width,
+        ),
+      );
+    }
     if (item.notes) {
       lines.push(
         ...wrapIndentedText(
@@ -167,7 +190,7 @@ function documentLines(
     if (index < document.lines.length - 1) lines.push("");
   });
 
-  lines.push(divider);
+  if (layoutProfile === "detailed" || document.notes) lines.push(divider);
   if (document.notes) {
     lines.push(
       "",
@@ -180,14 +203,18 @@ function documentLines(
       divider,
     );
   }
-  lines.push(
-    alignColumns(
-      "GESAMT:",
-      formatMoney(document.totalAmount, document.currency, encoding),
-      width,
-    ),
-    line,
-  );
+  if (layoutProfile === "detailed") {
+    lines.push(
+      alignColumns(
+        "GESAMT:",
+        formatMoney(document.totalAmount, document.currency, encoding),
+        width,
+      ),
+      line,
+    );
+  } else {
+    lines.push(line);
+  }
   return lines;
 }
 

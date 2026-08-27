@@ -39,6 +39,7 @@ describe("Star TSP1000 LAN transport", () => {
       connectTimeoutMs: 1_000,
       writeTimeoutMs: 1_000,
       cutAfterPrint: true,
+      bonLayoutProfile: "detailed" as const,
     };
     const payload = Buffer.from("COMPLETE-TEST-BUFFER");
     await expect(
@@ -63,6 +64,7 @@ describe("Star TSP1000 LAN transport", () => {
       connectTimeoutMs: 1_000,
       writeTimeoutMs: 1_000,
       cutAfterPrint: true,
+      bonLayoutProfile: "detailed" as const,
     };
     await expect(
       adapter.execute(Buffer.from("x"), config, controller.signal),

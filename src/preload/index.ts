@@ -11,8 +11,10 @@ const beginPairingChannel = "bridge:pairing:begin" as const;
 const openPairingBrowserChannel = "bridge:pairing:open-browser" as const;
 const disconnectChannel = "bridge:pairing:disconnect" as const;
 const getDeviceRuntimeSnapshotChannel = "bridge:runtime:get-snapshot" as const;
-const getIntegrationsSnapshotChannel = "bridge:integrations:get-snapshot" as const;
-const getDevelopmentSnapshotChannel = "bridge:development:get-snapshot" as const;
+const getIntegrationsSnapshotChannel =
+  "bridge:integrations:get-snapshot" as const;
+const getDevelopmentSnapshotChannel =
+  "bridge:development:get-snapshot" as const;
 const getPrinterSnapshotChannel = "bridge:printer:get-snapshot" as const;
 const savePrinterConfigurationChannel =
   "bridge:printer:save-configuration" as const;
@@ -28,8 +30,7 @@ const selectDiscoveredPrinterChannel =
 const testDiscoveredPrinterChannel = "bridge:printer:test-discovered" as const;
 const confirmDiscoveredPrinterChannel =
   "bridge:printer:confirm-discovered" as const;
-const requestPrinterSupportChannel =
-  "bridge:printer:request-support" as const;
+const requestPrinterSupportChannel = "bridge:printer:request-support" as const;
 const exportDiagnosticsChannel = "bridge:diagnostics:export" as const;
 const getUpdateSnapshotChannel = "bridge:update:get-snapshot" as const;
 const checkForUpdatesChannel = "bridge:update:check" as const;
@@ -48,8 +49,10 @@ const bridgeFoundation = Object.freeze({
   disconnect: () => ipcRenderer.invoke(disconnectChannel),
   getDeviceRuntimeSnapshot: () =>
     ipcRenderer.invoke(getDeviceRuntimeSnapshotChannel),
-  getIntegrationsSnapshot: () => ipcRenderer.invoke(getIntegrationsSnapshotChannel),
-  getDevelopmentSnapshot: () => ipcRenderer.invoke(getDevelopmentSnapshotChannel),
+  getIntegrationsSnapshot: () =>
+    ipcRenderer.invoke(getIntegrationsSnapshotChannel),
+  getDevelopmentSnapshot: () =>
+    ipcRenderer.invoke(getDevelopmentSnapshotChannel),
   getPrinterSnapshot: () => ipcRenderer.invoke(getPrinterSnapshotChannel),
   savePrinterConfiguration: (configuration: unknown, printerId?: string) =>
     ipcRenderer.invoke(savePrinterConfigurationChannel, {
@@ -68,8 +71,14 @@ const bridgeFoundation = Object.freeze({
   selectDiscoveredPrinter: (candidateId: string) =>
     ipcRenderer.invoke(selectDiscoveredPrinterChannel, candidateId),
   testDiscoveredPrinter: () => ipcRenderer.invoke(testDiscoveredPrinterChannel),
-  confirmDiscoveredPrinter: (printerId?: string) =>
-    ipcRenderer.invoke(confirmDiscoveredPrinterChannel, printerId),
+  confirmDiscoveredPrinter: (
+    bonLayoutProfile: "compact" | "kitchen" | "detailed",
+    printerId?: string,
+  ) =>
+    ipcRenderer.invoke(confirmDiscoveredPrinterChannel, {
+      bonLayoutProfile,
+      printerId,
+    }),
   requestPrinterSupport: (request: { model: string; note?: string }) =>
     ipcRenderer.invoke(requestPrinterSupportChannel, request),
   exportDiagnostics: () => ipcRenderer.invoke(exportDiagnosticsChannel),

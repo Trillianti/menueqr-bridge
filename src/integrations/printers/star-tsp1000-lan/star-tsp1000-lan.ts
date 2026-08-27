@@ -9,7 +9,7 @@ import type {
   AdapterHealth,
   IntegrationAdapter,
 } from "../../../contracts";
-import { createStaticTestBon } from "../../kitchen-bon";
+import { createStaticTestBon, type BonLayoutProfile } from "../../kitchen-bon";
 
 export type StarTsp1000LanConfiguration = {
   host: string;
@@ -20,6 +20,7 @@ export type StarTsp1000LanConfiguration = {
   connectTimeoutMs: number;
   writeTimeoutMs: number;
   cutAfterPrint: boolean;
+  bonLayoutProfile: BonLayoutProfile;
 };
 
 export type SocketFactory = () => Socket;
@@ -49,6 +50,9 @@ const DEFAULTS: StarTsp1000LanConfiguration = {
   connectTimeoutMs: 3_000,
   writeTimeoutMs: 5_000,
   cutAfterPrint: true,
+  // Preserve the established receipt for configurations saved by older builds.
+  // New setup flows submit the recommended compact profile explicitly.
+  bonLayoutProfile: "detailed",
 };
 const DISCOVERY_PORT = 9100;
 const DISCOVERY_TIMEOUT_MS = 350;
@@ -89,6 +93,7 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
       connectTimeoutMs: input.connectTimeoutMs ?? DEFAULTS.connectTimeoutMs,
       writeTimeoutMs: input.writeTimeoutMs ?? DEFAULTS.writeTimeoutMs,
       cutAfterPrint: input.cutAfterPrint ?? DEFAULTS.cutAfterPrint,
+      bonLayoutProfile: input.bonLayoutProfile ?? DEFAULTS.bonLayoutProfile,
     };
     if (
       (!isAllowedLocalHost(config.host) &&
@@ -101,7 +106,8 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
       !["cp437", "cp850", "windows1252"].includes(config.encoding) ||
       !isTimeout(config.connectTimeoutMs) ||
       !isTimeout(config.writeTimeoutMs) ||
-      typeof config.cutAfterPrint !== "boolean"
+      typeof config.cutAfterPrint !== "boolean" ||
+      !["compact", "kitchen", "detailed"].includes(config.bonLayoutProfile)
     ) {
       throw new Error("INVALID_CONFIGURATION");
     }
@@ -121,6 +127,7 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
       connectTimeoutMs: config.connectTimeoutMs,
       writeTimeoutMs: config.writeTimeoutMs,
       cutAfterPrint: config.cutAfterPrint,
+      bonLayoutProfile: config.bonLayoutProfile,
     };
   }
 
@@ -221,8 +228,7 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
         port: DISCOVERY_PORT,
       }),
     );
-    return candidates
-      .sort((left, right) => compareIpv4(left.host, right.host));
+    return candidates.sort((left, right) => compareIpv4(left.host, right.host));
   }
 
   private async discoveredPrinterName(host: string): Promise<string> {
@@ -370,7 +376,9 @@ function isLoopbackHost(host: string): boolean {
 }
 
 function isSafePrinterDisplayName(value: string | undefined): value is string {
-  return Boolean(value && value.length <= 253 && !/[\u0000-\u001f\u007f]/.test(value));
+  return Boolean(
+    value && value.length <= 253 && !/[\u0000-\u001f\u007f]/.test(value),
+  );
 }
 
 async function mapWithConcurrency<Input, Output>(

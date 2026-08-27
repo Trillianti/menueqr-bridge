@@ -36,6 +36,7 @@ const optionMatrix = [
   { commandMode: "esc_pos", paperWidthMm: 80, encoding: "windows1252" },
   { commandMode: "esc_pos", paperWidthMm: 82, encoding: "windows1252" },
 ] as const;
+const layoutProfiles = ["compact", "kitchen", "detailed"] as const;
 
 function options(overrides: Record<string, unknown> = {}) {
   return {
@@ -274,27 +275,34 @@ describe("real kitchen-order scenario matrix", () => {
       };
 
       for (const configuration of optionMatrix) {
-        const renderOptions = options(configuration);
-        const visible = lines(scenario, configuration);
-        const width = configuration.paperWidthMm === 82 ? 34 : 32;
-        const first = renderKitchenBon(scenario, renderOptions);
-        const second = renderKitchenBon(scenario, renderOptions);
+        for (const layoutProfile of layoutProfiles) {
+          const profileOptions = { ...configuration, layoutProfile };
+          const renderOptions = options(profileOptions);
+          const visible = lines(scenario, profileOptions);
+          const width = configuration.paperWidthMm === 82 ? 34 : 32;
+          const first = renderKitchenBon(scenario, renderOptions);
+          const second = renderKitchenBon(scenario, renderOptions);
+          const visibleText = visible.join("\n");
 
-        expect(first).toEqual(second);
-        expect(first.byteLength).toBeLessThanOrEqual(64 * 1024);
-        expect(visible.every((line) => line.length <= width)).toBe(true);
-        expect(visible.join("\n")).toContain(`TISCH ${scenario.tableNumber}`);
-        expect(visible.join("\n")).toContain(
-          `Bestellung #${scenario.orderReference}`,
-        );
-        expect(visible.join("\n")).toContain(
-          scenario.reprint ? "NACHDRUCK" : "BESTELLUNG",
-        );
-        renderedBons += 1;
+          expect(first).toEqual(second);
+          expect(first.byteLength).toBeLessThanOrEqual(64 * 1024);
+          expect(visible.every((line) => line.length <= width)).toBe(true);
+          expect(visibleText).toContain(`TISCH ${scenario.tableNumber}`);
+          expect(visibleText).toContain(
+            `Bestellung #${scenario.orderReference}`,
+          );
+          if (scenario.reprint) expect(visibleText).toContain("NACHDRUCK");
+          if (layoutProfile === "detailed") {
+            expect(visibleText).toContain("GESAMT:");
+          } else {
+            expect(visibleText).not.toContain("GESAMT:");
+          }
+          renderedBons += 1;
+        }
       }
     }
 
-    expect(renderedBons).toBe(480);
+    expect(renderedBons).toBe(1_440);
   });
 
   it.each([

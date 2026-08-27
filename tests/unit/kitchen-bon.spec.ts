@@ -98,6 +98,49 @@ GESAMT:                  51,90 €
     expect(output).toContain("2 x Schnitzel");
   });
 
+  it("renders a compact kitchen bon without restaurant, date, or prices", () => {
+    const output = lines(
+      {
+        ...sampleJob,
+        items: [{ ...sampleJob.items[0], notes: "ohne Zwiebeln" }],
+        totalAmount: "36.00",
+      },
+      { layoutProfile: "compact" },
+    );
+    const text = output.join("\n");
+    expect(output.slice(0, 4)).toEqual([
+      "================================",
+      "TISCH 4                    18:42",
+      "Bestellung #1048",
+      "================================",
+    ]);
+    expect(text).toContain("2 x Schnitzel");
+    expect(text).toContain("    OHNE ZWIEBELN");
+    expect(text).toContain("ANMERKUNG:");
+    expect(text).not.toContain("WEINGUT");
+    expect(text).not.toContain("23.08.26");
+    expect(text).not.toContain("18,00");
+    expect(text).not.toContain("GESAMT:");
+  });
+
+  it("renders a kitchen-plus bon with identity but without commercial values", () => {
+    const output = lines(sampleJob, { layoutProfile: "kitchen" });
+    const text = output.join("\n");
+    expect(text).toContain("WEINGUT JÄCKEL");
+    expect(text).toContain("BESTELLUNG");
+    expect(text).toContain("23.08.26");
+    expect(text).toContain("2 x Schnitzel");
+    expect(text).not.toContain("18,00");
+    expect(text).not.toContain("GESAMT:");
+  });
+
+  it("keeps the established detailed bon as the backwards-compatible profile", () => {
+    expect(lines(sampleJob, { layoutProfile: "detailed" })).toEqual(lines());
+    expect(
+      lines(sampleJob, { layoutProfile: "detailed" }).join("\n"),
+    ).toContain("GESAMT:                  51,90 €");
+  });
+
   it("renders order and item notes in an uppercase kitchen hierarchy", () => {
     const output = lines({
       ...sampleJob,
@@ -159,9 +202,9 @@ GESAMT:                  51,90 €
       Buffer.from([0x8e, 0x99, 0x9a, 0x84, 0x94, 0x81, 0xe1]),
     );
     expect(encodeText("€", "windows1252")).toEqual(Buffer.from([0x80]));
-    expect(
-      lines(sampleJob, { encoding: "cp437" }).join("\n"),
-    ).toContain("18,00 EUR");
+    expect(lines(sampleJob, { encoding: "cp437" }).join("\n")).toContain(
+      "18,00 EUR",
+    );
   });
 
   it("accepts missing optional fields deterministically", () => {
@@ -220,9 +263,7 @@ GESAMT:                  51,90 €
       cutAfterPrint: false,
     });
     expect(star.subarray(-3)).toEqual(Buffer.from([0x1b, 0x64, 0x03]));
-    expect(starNoCut.subarray(-3)).not.toEqual(
-      Buffer.from([0x1b, 0x64, 0x03]),
-    );
+    expect(starNoCut.subarray(-3)).not.toEqual(Buffer.from([0x1b, 0x64, 0x03]));
     expect(esc.subarray(-3)).toEqual(Buffer.from([0x1d, 0x56, 0x00]));
     expect(escNoCut.subarray(-3)).toEqual(Buffer.from([0x1b, 0x64, 0x03]));
   });

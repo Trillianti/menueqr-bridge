@@ -11,6 +11,7 @@ The automated matrix covers all supported combinations of:
 - Star Line and ESC/POS command modes;
 - 80 mm and 82 mm paper widths;
 - CP437, CP850, and Windows-1252 encodings;
+- compact, kitchen-plus, and detailed bon layouts;
 - one through 50 order lines and quantities from one through 50;
 - zero, one-decimal, large grouped, EUR, and non-EUR prices;
 - item variations, item notes, order notes, and empty optional text;
@@ -24,8 +25,9 @@ The automated matrix covers all supported combinations of:
   negative totals, inconsistent line/order totals, and duplicate item IDs.
 
 `kitchen-bon-scenario-matrix.spec.ts` renders 120 deterministic real-world
-orders in four printer configurations (480 full renderer combinations) and
-asserts byte determinism, width, content hierarchy, size, and final cut command.
+orders in four printer configurations and three layouts (1,440 full renderer
+combinations) and asserts byte determinism, width, content hierarchy, size, and
+final cut command.
 
 ## Automated delivery matrix
 

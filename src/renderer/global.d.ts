@@ -61,6 +61,7 @@ type BridgeLocalPrinterConfiguration = {
   connectTimeoutMs: number;
   writeTimeoutMs: number;
   cutAfterPrint: boolean;
+  bonLayoutProfile: "compact" | "kitchen" | "detailed";
 };
 
 type BridgePrinterSnapshot = {
@@ -143,9 +144,15 @@ declare global {
         configuration: BridgeLocalPrinterConfiguration,
         printerId?: string,
       ): Promise<BridgePrinterSnapshot>;
-      deletePrinterConfiguration(printerId: string): Promise<BridgePrinterSnapshot>;
-      activatePrinterConfiguration(printerId: string): Promise<BridgePrinterSnapshot>;
-      testPrinterConnection(printerId?: string): Promise<BridgePrinterSnapshot["health"]>;
+      deletePrinterConfiguration(
+        printerId: string,
+      ): Promise<BridgePrinterSnapshot>;
+      activatePrinterConfiguration(
+        printerId: string,
+      ): Promise<BridgePrinterSnapshot>;
+      testPrinterConnection(
+        printerId?: string,
+      ): Promise<BridgePrinterSnapshot["health"]>;
       testPrinterPrint(printerId?: string): Promise<{
         status: "succeeded" | "retryable_failure" | "terminal_failure";
         code: string;
@@ -160,7 +167,10 @@ declare global {
         code: string;
         message: string;
       }>;
-      confirmDiscoveredPrinter(printerId?: string): Promise<BridgePrinterSnapshot>;
+      confirmDiscoveredPrinter(
+        bonLayoutProfile: "compact" | "kitchen" | "detailed",
+        printerId?: string,
+      ): Promise<BridgePrinterSnapshot>;
       requestPrinterSupport(request: {
         model: string;
         note?: string;

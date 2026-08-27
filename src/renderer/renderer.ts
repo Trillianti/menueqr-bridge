@@ -19,6 +19,7 @@ type PrinterFormConfiguration = {
   connectTimeoutMs: number;
   writeTimeoutMs: number;
   cutAfterPrint: boolean;
+  bonLayoutProfile: "compact" | "kitchen" | "detailed";
 };
 
 type DiscoveredPrinter = {
@@ -86,12 +87,22 @@ type IntegrationSnapshot = {
   id: string;
   capabilities: readonly string[];
   configured: boolean;
-  healthStatus: "ready" | "degraded" | "offline" | "misconfigured" | "not_configured";
+  healthStatus:
+    | "ready"
+    | "degraded"
+    | "offline"
+    | "misconfigured"
+    | "not_configured";
 };
 
 type UpdateSnapshot =
   | { kind: "disabled" | "idle" | "checking" | "error"; currentVersion: string }
-  | { kind: "downloading"; currentVersion: string; version: string; percent: number }
+  | {
+      kind: "downloading";
+      currentVersion: string;
+      version: string;
+      percent: number;
+    }
   | { kind: "downloaded"; currentVersion: string; version: string };
 
 type DevelopmentSnapshot = {
@@ -109,7 +120,9 @@ const onboardingTitle = requiredElement<HTMLElement>(
 const onboardingDescription = requiredElement<HTMLElement>(
   "[data-testid='onboarding-description']",
 );
-const pairingCard = requiredElement<HTMLElement>("[data-testid='pairing-card']");
+const pairingCard = requiredElement<HTMLElement>(
+  "[data-testid='pairing-card']",
+);
 const printerSetupCard = requiredElement<HTMLElement>(
   "[data-testid='printer-setup-card']",
 );
@@ -419,9 +432,11 @@ function selectedDiscoveredPrinter(): DiscoveredPrinter | null {
   );
 }
 
-function printerHealthLabel(
-  health: PrinterHealth | null,
-): { title: string; detail: string; state: "success" | "attention" | "neutral" } {
+function printerHealthLabel(health: PrinterHealth | null): {
+  title: string;
+  detail: string;
+  state: "success" | "attention" | "neutral";
+} {
   if (!health)
     return {
       title: "Nicht geprüft",
@@ -437,13 +452,15 @@ function printerHealthLabel(
   if (health.status === "offline")
     return {
       title: "Offline",
-      detail: "Prüfen Sie, ob Drucker und Windows-Gerät im selben Netzwerk sind.",
+      detail:
+        "Prüfen Sie, ob Drucker und Windows-Gerät im selben Netzwerk sind.",
       state: "attention",
     };
   if (health.status === "misconfigured")
     return {
       title: "Konfiguration prüfen",
-      detail: "Öffnen Sie die manuellen Einstellungen und prüfen Sie die Angaben.",
+      detail:
+        "Öffnen Sie die manuellen Einstellungen und prüfen Sie die Angaben.",
       state: "attention",
     };
   return {
@@ -491,12 +508,19 @@ function renderPrinterWorkspace(): void {
     primary.className = "saved-printer-primary";
     icon.className = "saved-printer-icon";
     icon.setAttribute("aria-hidden", "true");
-    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V4h12v5M6 18h12v2H6z"/><path d="M5 9h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z"/><path d="M17 13h.01"/></svg>';
+    icon.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V4h12v5M6 18h12v2H6z"/><path d="M5 9h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z"/><path d="M17 13h.01"/></svg>';
     copy.className = "saved-printer-copy";
     name.textContent = "Star TSP1000 LAN";
     name.setAttribute("data-testid", "saved-printer-name");
     meta.className = "saved-printer-meta";
-    meta.textContent = `${configuration.host}:${configuration.port} · ${configuration.paperWidthMm} mm · ${configuration.commandMode === "star_line" ? "Star Line" : "ESC/POS"}${printer.active ? " · Aktiv" : ""}`;
+    const layoutLabel =
+      configuration.bonLayoutProfile === "compact"
+        ? "Kompakt"
+        : configuration.bonLayoutProfile === "kitchen"
+          ? "Küche Plus"
+          : "Vollständig";
+    meta.textContent = `${configuration.host}:${configuration.port} · ${configuration.paperWidthMm} mm · ${layoutLabel} · ${configuration.commandMode === "star_line" ? "Star Line" : "ESC/POS"}${printer.active ? " · Aktiv" : ""}`;
     meta.setAttribute("data-testid", "saved-printer-address");
     copy.append(name, meta);
     primary.append(icon, copy);
@@ -544,7 +568,9 @@ function renderPrinterWorkspace(): void {
     deleteButton.className = "button-danger";
     deleteButton.textContent = "Entfernen";
     deleteButton.setAttribute("data-testid", "printer-delete");
-    deleteButton.addEventListener("click", () => openPrinterDeleteDialog(printer.id));
+    deleteButton.addEventListener("click", () =>
+      openPrinterDeleteDialog(printer.id),
+    );
     actions.append(
       connectionButton,
       testButton,
@@ -571,8 +597,9 @@ function renderPrinterWorkspace(): void {
     printerDetailsAddress.textContent = `${editedPrinter.configuration.host}:${editedPrinter.configuration.port} · ${editedPrinter.active ? "Aktiver Küchendrucker" : "Nicht aktiv"}`;
     printerDetailsHealth.textContent = label.title;
     printerDetailsHealth.dataset.state = label.state;
-    printerDetailsConnectionButton.disabled =
-      printerConnectionsInProgress.has(editedPrinter.id);
+    printerDetailsConnectionButton.disabled = printerConnectionsInProgress.has(
+      editedPrinter.id,
+    );
     printerDetailsActivateButton.hidden = editedPrinter.active;
   }
 }
@@ -612,8 +639,10 @@ function renderIntegrations(): void {
     const title = document.createElement("h3");
     const description = document.createElement("p");
     const state = document.createElement("span");
-    const isKitchenPrinter = integration.capabilities.includes("printer.kitchen");
-    const ready = integration.configured && integration.healthStatus === "ready";
+    const isKitchenPrinter =
+      integration.capabilities.includes("printer.kitchen");
+    const ready =
+      integration.configured && integration.healthStatus === "ready";
 
     card.className = "integration-card";
     card.dataset.state = ready ? "ready" : "attention";
@@ -689,7 +718,8 @@ function renderDevelopmentDiagnostics(): void {
   developmentPanel.hidden = !development?.enabled;
   if (!development?.enabled) return;
   developmentApi.textContent = development.apiBaseUrl ?? "nicht gesetzt";
-  developmentHosts.textContent = development.verificationHosts.join(", ") || "nicht gesetzt";
+  developmentHosts.textContent =
+    development.verificationHosts.join(", ") || "nicht gesetzt";
   const pairing = pairingSnapshot;
   const pairingError =
     pairing?.kind === "denied" ||
@@ -783,7 +813,8 @@ function renderSetupSummary(): void {
   }
 
   setFoundationStatus("Einrichtung abschließen", "attention");
-  onboardingTitle.textContent = "Drucker eingerichtet – Verbindung wird vorbereitet";
+  onboardingTitle.textContent =
+    "Drucker eingerichtet – Verbindung wird vorbereitet";
   onboardingDescription.textContent =
     "Bridge aktiviert den Hintergrundbetrieb automatisch, sobald die Verbindung bereit ist.";
   serviceStatus.dataset.state = "attention";
@@ -801,7 +832,8 @@ function renderPairing(): void {
   restaurantProfile.hidden = pairing?.kind !== "paired";
 
   if (pairing?.kind === "paired") {
-    restaurantProfileName.textContent = pairing.credential.restaurant.displayName;
+    restaurantProfileName.textContent =
+      pairing.credential.restaurant.displayName;
     pairingElement.textContent = `Verbunden mit ${pairing.credential.restaurant.displayName}.`;
     pairingButton.textContent = "Dieses Gerät trennen";
     pairingButton.disabled = false;
@@ -842,7 +874,8 @@ function renderPairing(): void {
   ) {
     const messages: Record<typeof pairing.kind, string> = {
       denied: "Dieses Gerät wurde im Browser nicht bestätigt.",
-      expired: "Der Bestätigungscode ist abgelaufen. Starten Sie die Verbindung erneut.",
+      expired:
+        "Der Bestätigungscode ist abgelaufen. Starten Sie die Verbindung erneut.",
       network_error:
         "MenüQR ist gerade nicht erreichbar. Prüfen Sie die Internetverbindung und versuchen Sie es erneut.",
       secure_storage_unavailable:
@@ -856,7 +889,8 @@ function renderPairing(): void {
     return;
   }
 
-  pairingElement.textContent = "Dieses Windows-Gerät ist noch keinem Restaurant zugeordnet.";
+  pairingElement.textContent =
+    "Dieses Windows-Gerät ist noch keinem Restaurant zugeordnet.";
   pairingButton.textContent = "Restaurant verbinden";
   pairingButton.disabled = pairing?.kind === "requesting_code";
 }
@@ -885,7 +919,8 @@ function renderPrinterDiscovery(): void {
     const button = document.createElement("button");
     const name = document.createElement("span");
     const address = document.createElement("span");
-    const selectedCandidate = candidate.id === printerDiscovery?.selectedCandidateId;
+    const selectedCandidate =
+      candidate.id === printerDiscovery?.selectedCandidateId;
     button.type = "button";
     button.className = "printer-candidate";
     button.setAttribute("aria-pressed", String(selectedCandidate));
@@ -933,7 +968,19 @@ function printerFormData(
     connectTimeoutMs: Number(value.get("connectTimeoutMs") ?? 3000),
     writeTimeoutMs: Number(value.get("writeTimeoutMs") ?? 5000),
     cutAfterPrint: value.get("cutAfterPrint") === "on",
+    bonLayoutProfile: String(
+      value.get("bonLayoutProfile") ?? selectedSetupBonLayout(),
+    ) as "compact" | "kitchen" | "detailed",
   };
+}
+
+function selectedSetupBonLayout(): "compact" | "kitchen" | "detailed" {
+  const selected = document.querySelector<HTMLInputElement>(
+    "input[name='setupBonLayoutProfile']:checked",
+  )?.value;
+  return selected === "kitchen" || selected === "detailed"
+    ? selected
+    : "compact";
 }
 
 function fillPrinterForm(
@@ -941,6 +988,15 @@ function fillPrinterForm(
   form: HTMLFormElement = printerForm,
 ): void {
   for (const [name, value] of Object.entries(configuration)) {
+    const radioFields = form.querySelectorAll<HTMLInputElement>(
+      `input[type="radio"][name="${name}"]`,
+    );
+    if (radioFields.length > 0) {
+      radioFields.forEach((field) => {
+        field.checked = field.value === String(value);
+      });
+      continue;
+    }
     const field = form.elements.namedItem(name);
     if (field instanceof HTMLInputElement && field.type === "checkbox") {
       field.checked = value === true;
@@ -1038,7 +1094,8 @@ async function testPrinter(
       result.status === "succeeded" ? "success" : "attention";
     await refreshPrinter();
   } catch {
-    serviceStatusCopy.textContent = "Der Testbon konnte nicht gestartet werden.";
+    serviceStatusCopy.textContent =
+      "Der Testbon konnte nicht gestartet werden.";
     serviceStatus.dataset.state = "attention";
   } finally {
     button.disabled = false;
@@ -1115,7 +1172,8 @@ void refreshFoundation().catch(() => {
   setFoundationStatus("Status nicht verfügbar", "danger");
 });
 void refreshShell().catch(() => {
-  shellElement.textContent = "Windows-Einstellungen sind gerade nicht verfügbar.";
+  shellElement.textContent =
+    "Windows-Einstellungen sind gerade nicht verfügbar.";
 });
 void refreshPairing().catch(showPairingUnavailable);
 void refreshDeviceRuntime().catch(() => {
@@ -1157,7 +1215,8 @@ autostartButton.addEventListener("click", () => {
     .then((shell) => window.menuqrBridge.setAutostart(!shell.autostartEnabled))
     .then(refreshShell)
     .catch(() => {
-      shellElement.textContent = "Der Windows-Autostart konnte nicht geändert werden.";
+      shellElement.textContent =
+        "Der Windows-Autostart konnte nicht geändert werden.";
     });
 });
 
@@ -1427,10 +1486,7 @@ heroPairingOpenButton.addEventListener("click", () => {
 printerForm.addEventListener("submit", (event) => {
   event.preventDefault();
   void window.menuqrBridge
-    .savePrinterConfiguration(
-      printerFormData(),
-      editingPrinterId ?? undefined,
-    )
+    .savePrinterConfiguration(printerFormData(), editingPrinterId ?? undefined)
     .then((snapshot) => {
       printerSnapshot = snapshot;
       editingPrinterId = null;
@@ -1453,7 +1509,8 @@ printerDiscoveryButton.addEventListener("click", () => {
   discoveryTestSucceeded = false;
   discoveryConfirmed = false;
   renderSetupSummary();
-  printerDiscoveryElement.textContent = "Lokales Netzwerk wird nach Druckern durchsucht …";
+  printerDiscoveryElement.textContent =
+    "Lokales Netzwerk wird nach Druckern durchsucht …";
   void window.menuqrBridge
     .discoverPrinters()
     .then((discovery) => {
@@ -1497,7 +1554,10 @@ printerDiscoveryTestButton.addEventListener("click", () => {
 printerDiscoveryConfirmButton.addEventListener("click", () => {
   printerDiscoveryConfirmButton.disabled = true;
   void window.menuqrBridge
-    .confirmDiscoveredPrinter(editingPrinterId ?? undefined)
+    .confirmDiscoveredPrinter(
+      selectedSetupBonLayout(),
+      editingPrinterId ?? undefined,
+    )
     .then((snapshot) => {
       printerSnapshot = snapshot;
       discoveryConfirmed = snapshot.configuration !== null;
@@ -1527,7 +1587,8 @@ diagnosticsButton.addEventListener("click", () => {
       shellElement.textContent = `Diagnose wurde lokal gespeichert: ${fileName}`;
     })
     .catch(() => {
-      shellElement.textContent = "Die Diagnose konnte nicht gespeichert werden.";
+      shellElement.textContent =
+        "Die Diagnose konnte nicht gespeichert werden.";
     })
     .finally(() => {
       diagnosticsButton.disabled = false;

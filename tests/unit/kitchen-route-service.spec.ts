@@ -32,6 +32,7 @@ describe("kitchen route service", () => {
           connectTimeoutMs: input.connectTimeoutMs ?? 3000,
           writeTimeoutMs: input.writeTimeoutMs ?? 5000,
           cutAfterPrint: input.cutAfterPrint ?? true,
+          bonLayoutProfile: input.bonLayoutProfile ?? "detailed",
         };
       },
       redactConfiguration: () => ({ adapter: "test" }),
@@ -79,6 +80,7 @@ describe("kitchen route service", () => {
     connectTimeoutMs: 3000,
     writeTimeoutMs: 5000,
     cutAfterPrint: true,
+    bonLayoutProfile: "detailed" as const,
   };
 
   it("keeps an unconfigured route out of job polling", async () => {
@@ -263,10 +265,13 @@ describe("kitchen route service", () => {
       route.testSelectedDiscoveredPrinter(new AbortController().signal),
     ).resolves.toMatchObject({ status: "succeeded" });
     await expect(
-      route.confirmSelectedDiscoveredPrinter(),
+      route.confirmSelectedDiscoveredPrinter(undefined, "kitchen"),
     ).resolves.toMatchObject({
       configured: true,
-      configuration: expect.objectContaining({ host: candidate.host }),
+      configuration: expect.objectContaining({
+        host: candidate.host,
+        bonLayoutProfile: "kitchen",
+      }),
     });
     const restored = new KitchenRouteService(
       join(directory, "adapter-config.json"),
@@ -277,7 +282,10 @@ describe("kitchen route service", () => {
     );
     await expect(restored.snapshot()).resolves.toMatchObject({
       configured: true,
-      configuration: expect.objectContaining({ host: candidate.host }),
+      configuration: expect.objectContaining({
+        host: candidate.host,
+        bonLayoutProfile: "kitchen",
+      }),
     });
   });
 

@@ -52,12 +52,26 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await expect(window.getByTestId("saved-printer-card")).toBeHidden();
     await window.getByTestId("printer-add").click();
     await expect(window.getByTestId("printer-setup-card")).toBeVisible();
-    await expect(window.getByRole("heading", { name: "Küchendrucker hinzufügen" })).toBeVisible();
+    await expect(
+      window.getByRole("heading", { name: "Küchendrucker hinzufügen" }),
+    ).toBeVisible();
     await expect(
       window.getByRole("heading", { name: "Küchendrucker", exact: true }),
     ).toBeVisible();
-    await expect(window.getByText("Weitere Geräte", { exact: true })).toHaveCount(0);
+    await expect(
+      window.getByText("Weitere Geräte", { exact: true }),
+    ).toHaveCount(0);
     await expect(window.getByTestId("printer-discover")).toBeVisible();
+    await expect(window.getByTestId("setup-bon-layout")).toBeVisible();
+    await expect(
+      window.locator("input[name='setupBonLayoutProfile'][value='compact']"),
+    ).toBeChecked();
+    await expect(
+      window.getByTestId("setup-bon-layout").getByText("Küche Plus"),
+    ).toBeVisible();
+    await expect(
+      window.getByTestId("setup-bon-layout").getByText("Vollständig"),
+    ).toBeVisible();
     await expect(window.getByTestId("printer-request-toggle")).toBeVisible();
     await window.getByTestId("printer-request-toggle").click();
     await expect(window.getByTestId("printer-request-dialog")).toBeVisible();
@@ -65,7 +79,9 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await expect(window.getByTestId("printer-request-model")).toBeFocused();
     await window.keyboard.press("Escape");
     await expect(window.getByTestId("printer-request-dialog")).toBeHidden();
-    await expect(window.locator(".printer-setup-card .card-number")).toHaveCount(0);
+    await expect(
+      window.locator(".printer-setup-card .card-number"),
+    ).toHaveCount(0);
     const workspaceWidths = await window.evaluate(() => {
       const workspace = document.querySelector(".printer-workspace");
       const card = document.querySelector("[data-testid='printer-setup-card']");
@@ -74,7 +90,9 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
         workspace: workspace?.getBoundingClientRect().width ?? 0,
       };
     });
-    expect(workspaceWidths.card).toBeGreaterThanOrEqual(workspaceWidths.workspace - 1);
+    expect(workspaceWidths.card).toBeGreaterThanOrEqual(
+      workspaceWidths.workspace - 1,
+    );
 
     await window.getByTestId("manual-printer-settings").click();
     await window
@@ -93,6 +111,9 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await expect(window.getByTestId("saved-printer-address")).toContainText(
       "192.168.1.42:9100",
     );
+    await expect(window.getByTestId("saved-printer-address")).toContainText(
+      "Kompakt",
+    );
     await expect(window.getByTestId("printer-add-another")).toBeVisible();
 
     await window.getByTestId("printer-edit").click();
@@ -102,6 +123,13 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await expect(
       window.getByTestId("printer-details-form").locator("input[name='host']"),
     ).toHaveValue("192.168.1.42");
+    await expect(
+      window.locator("input[name='bonLayoutProfile'][value='compact']"),
+    ).toBeChecked();
+    await window
+      .getByTestId("details-bon-layout")
+      .locator("label", { hasText: "Vollständig" })
+      .click();
     await window
       .getByTestId("printer-details-form")
       .locator("input[name='port']")
@@ -113,6 +141,9 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await window.getByTestId("printer-details-back").click();
     await expect(window.getByTestId("saved-printer-address")).toContainText(
       "192.168.1.42:9101",
+    );
+    await expect(window.getByTestId("saved-printer-address")).toContainText(
+      "Vollständig",
     );
 
     await window.evaluate(() => {
@@ -131,12 +162,12 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
       document.body.dataset.activeTab = "printers";
     });
     await expect(window.getByTestId("saved-printer-card")).toHaveCount(2);
-    await expect(window.getByTestId("saved-printer-address").nth(1)).toContainText(
-      "192.168.1.43:9100",
-    );
-    await expect(window.getByTestId("saved-printer-address").nth(1)).toContainText(
-      "Aktiv",
-    );
+    await expect(
+      window.getByTestId("saved-printer-address").nth(1),
+    ).toContainText("192.168.1.43:9100");
+    await expect(
+      window.getByTestId("saved-printer-address").nth(1),
+    ).toContainText("Aktiv");
 
     await window.evaluate(() => {
       document.body.dataset.setupMode = "connected";
@@ -151,7 +182,9 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await expect(window.getByTestId("saved-printer-address")).toContainText(
       "192.168.1.43:9100",
     );
-    await expect(window.getByText("Weitere Einstellungen", { exact: true })).toHaveCount(0);
+    await expect(
+      window.getByText("Weitere Einstellungen", { exact: true }),
+    ).toHaveCount(0);
     await window.evaluate(() => {
       document.body.dataset.setupMode = "connected";
       document.body.dataset.activeTab = "settings";
