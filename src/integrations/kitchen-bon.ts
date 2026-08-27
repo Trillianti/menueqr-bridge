@@ -1,7 +1,4 @@
-import {
-  parseKitchenPrintJob,
-  type AdapterCommandMode,
-} from "../contracts";
+import { parseKitchenPrintJob, type AdapterCommandMode } from "../contracts";
 
 export type BonDocument = {
   title: "BESTELLUNG";
@@ -32,7 +29,10 @@ export type BonRenderOptions = {
   timeZone?: string;
 };
 
-const MAX_LINES = 120;
+// The public order contract permits 50 items, 600-character item notes, and a
+// 1,200-character order note. Keep the line guard above that valid worst case;
+// MAX_BYTES remains the final transport-safety bound.
+const MAX_LINES = 2_200;
 const MAX_BYTES = 64 * 1024;
 const REPRINT_MARKER = "******* NACHDRUCK *******";
 

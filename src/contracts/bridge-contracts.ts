@@ -237,13 +237,18 @@ function requireIsoTimestamp(value: unknown, field: string): string {
 
 function requireDecimal(value: unknown, field: string): string {
   const decimal = requireString(value, field);
-  if (!/^-?\d+(\.\d{1,2})?$/.test(decimal)) {
+  if (!/^\d+(\.\d{1,2})?$/.test(decimal)) {
     throw new BridgeContractValidationError(
-      `${field} must be a decimal string.`,
+      `${field} must be a non-negative decimal string.`,
     );
   }
 
   return decimal;
+}
+
+function decimalMinorUnits(value: string): bigint {
+  const [whole = "0", fraction = ""] = value.split(".");
+  return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
 }
 
 export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
@@ -277,6 +282,7 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
     );
   }
 
+  const itemIds = new Set<string>();
   const items = value.items.map((item, index): KitchenPrintItemV1 => {
     if (!isRecord(item)) {
       throw new BridgeContractValidationError(
@@ -306,22 +312,58 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
       );
     }
 
+    const itemId = requireString(item.itemId, `items[${index}].itemId`);
+    if (itemIds.has(itemId)) {
+      throw new BridgeContractValidationError(
+        `items[${index}].itemId must be unique.`,
+      );
+    }
+    itemIds.add(itemId);
+    const quantity = Number(item.quantity);
+    const unitPrice = requireDecimal(
+      item.unitPrice,
+      `items[${index}].unitPrice`,
+    );
+    const lineTotal = requireDecimal(
+      item.lineTotal,
+      `items[${index}].lineTotal`,
+    );
+    if (
+      decimalMinorUnits(unitPrice) * BigInt(quantity) !==
+      decimalMinorUnits(lineTotal)
+    ) {
+      throw new BridgeContractValidationError(
+        `items[${index}].lineTotal must equal unitPrice multiplied by quantity.`,
+      );
+    }
+
     return {
-      itemId: requireString(item.itemId, `items[${index}].itemId`),
+      itemId,
       name: requireString(item.name, `items[${index}].name`),
       variation: item.variation,
       ...(typeof item.notes === "string" || item.notes === null
         ? { notes: item.notes }
         : {}),
-      quantity: Number(item.quantity),
-      unitPrice: requireDecimal(item.unitPrice, `items[${index}].unitPrice`),
-      lineTotal: requireDecimal(item.lineTotal, `items[${index}].lineTotal`),
+      quantity,
+      unitPrice,
+      lineTotal,
     };
   });
 
   const notes = value.notes;
   if (notes !== null && typeof notes !== "string") {
     throw new BridgeContractValidationError("notes must be a string or null.");
+  }
+
+  const totalAmount = requireDecimal(value.totalAmount, "totalAmount");
+  const itemTotal = items.reduce(
+    (total, item) => total + decimalMinorUnits(item.lineTotal),
+    0n,
+  );
+  if (itemTotal !== decimalMinorUnits(totalAmount)) {
+    throw new BridgeContractValidationError(
+      "totalAmount must equal the sum of item line totals.",
+    );
   }
 
   return {
@@ -337,7 +379,7 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
     currency: requireString(value.currency, "currency"),
     notes,
     items,
-    totalAmount: requireDecimal(value.totalAmount, "totalAmount"),
+    totalAmount,
     ...(typeof value.reprint === "boolean" ? { reprint: value.reprint } : {}),
   };
 }
