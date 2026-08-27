@@ -18,6 +18,8 @@ The automated matrix covers all supported combinations of:
 - German characters, unsupported Unicode, emoji, Cyrillic, control bytes, and
   long unbroken text;
 - normal orders and explicit reprints;
+- linked follow-up orders with a prominent `NACHBESTELLUNG` marker, sequence,
+  previous order reference, and only newly submitted positions;
 - tables one through 500, long restaurant names, order references, dates,
   times, and the Vienna daylight-saving fallback;
 - the largest public order shape accepted by the backend;
@@ -40,6 +42,8 @@ final cut command.
   second printer write;
 - a confirmed pre-write printer failure is retried and later acknowledged;
 - a changed payload under an existing job ID is rejected without printing.
+- an initial order and its follow-up produce two linked writes without repeating
+  the initial positions on the follow-up bon.
 
 The existing integration suites additionally cover pairing, heartbeat, long
 polling, fake TCP printer transport, lease acknowledgement loss, cancellation,

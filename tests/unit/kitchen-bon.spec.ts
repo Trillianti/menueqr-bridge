@@ -231,6 +231,47 @@ GESAMT:                  51,90 €
     expect(lines()[0]).not.toContain("NACHDRUCK");
   });
 
+  it.each(["compact", "kitchen", "detailed"] as const)(
+    "marks a follow-up order clearly in the %s layout without repeating old items",
+    (layoutProfile) => {
+      const output = lines(
+        {
+          ...sampleJob,
+          orderReference: "1049",
+          orderKind: "additional",
+          serviceSequence: 2,
+          rootOrderReference: "1048",
+          previousOrderReference: "1048",
+          notes: null,
+          items: [sampleJob.items[2]],
+          totalAmount: "8.40",
+        },
+        { layoutProfile },
+      );
+      const text = output.join("\n");
+      expect(text).toContain("NACHBESTELLUNG 2");
+      expect(text).toContain("Zu Bestellung #1048");
+      expect(text).toContain("Bestellung #1049");
+      expect(text).toContain("2 x Traubensaft");
+      expect(text).not.toContain("Schnitzel");
+      expect(text).not.toContain("Beilagensalat");
+    },
+  );
+
+  it("keeps NACHDRUCK first when a follow-up order is manually reprinted", () => {
+    const output = lines({
+      ...sampleJob,
+      orderKind: "additional",
+      serviceSequence: 3,
+      rootOrderReference: "1048",
+      previousOrderReference: "1049",
+      reprint: true,
+    });
+    expect(output[0]).toBe("******* NACHDRUCK *******");
+    expect(output.join("\n")).toContain("NACHBESTELLUNG 3");
+    expect(output.join("\n")).toContain("Zu Bestellung #1049");
+  });
+
   it("formats and rounds real decimal snapshots as German currency", () => {
     expect(formatMoney("18", "EUR")).toBe("18,00 €");
     expect(formatMoney("7.5", "EUR")).toBe("7,50 €");

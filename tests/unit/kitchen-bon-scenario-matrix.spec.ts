@@ -255,6 +255,19 @@ describe("real kitchen-order scenario matrix", () => {
         jobId: `job-${orderIndex}`,
         orderId: `order-${orderIndex}`,
         orderReference: String(10_000 + orderIndex),
+        ...(orderIndex % 11 === 0
+          ? {
+              orderKind: "additional" as const,
+              serviceSequence: 2 + (orderIndex % 4),
+              rootOrderReference: String(9_000 + orderIndex),
+              previousOrderReference: String(9_999 + orderIndex),
+            }
+          : {
+              orderKind: "initial" as const,
+              serviceSequence: 1,
+              rootOrderReference: String(10_000 + orderIndex),
+              previousOrderReference: null,
+            }),
         tableNumber: 1 + ((orderIndex * 37) % 500),
         createdAt: new Date(
           Date.UTC(
@@ -292,6 +305,16 @@ describe("real kitchen-order scenario matrix", () => {
             `Bestellung #${scenario.orderReference}`,
           );
           if (scenario.reprint) expect(visibleText).toContain("NACHDRUCK");
+          if (scenario.orderKind === "additional") {
+            expect(visibleText).toContain(
+              `NACHBESTELLUNG ${scenario.serviceSequence}`,
+            );
+            expect(visibleText).toContain(
+              `Zu Bestellung #${scenario.previousOrderReference}`,
+            );
+          } else {
+            expect(visibleText).not.toContain("NACHBESTELLUNG");
+          }
           if (layoutProfile === "detailed") {
             expect(visibleText).toContain("GESAMT:");
           } else {

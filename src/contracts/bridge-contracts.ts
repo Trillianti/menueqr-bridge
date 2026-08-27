@@ -80,6 +80,10 @@ export type KitchenPrintJobV1 = {
   restaurantName: string;
   orderId: string;
   orderReference: string;
+  orderKind?: "initial" | "additional";
+  serviceSequence?: number;
+  rootOrderReference?: string;
+  previousOrderReference?: string | null;
   tableNumber: number;
   createdAt: string;
   currency: string;
@@ -366,6 +370,55 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
     );
   }
 
+  if (
+    value.orderKind !== undefined &&
+    value.orderKind !== "initial" &&
+    value.orderKind !== "additional"
+  ) {
+    throw new BridgeContractValidationError(
+      "orderKind must be initial or additional.",
+    );
+  }
+  if (
+    value.serviceSequence !== undefined &&
+    (!Number.isInteger(value.serviceSequence) ||
+      Number(value.serviceSequence) < 1)
+  ) {
+    throw new BridgeContractValidationError(
+      "serviceSequence must be a positive integer.",
+    );
+  }
+  if (
+    value.rootOrderReference !== undefined &&
+    (typeof value.rootOrderReference !== "string" ||
+      value.rootOrderReference.trim().length === 0)
+  ) {
+    throw new BridgeContractValidationError(
+      "rootOrderReference must be a non-empty string when provided.",
+    );
+  }
+  if (
+    value.previousOrderReference !== undefined &&
+    value.previousOrderReference !== null &&
+    (typeof value.previousOrderReference !== "string" ||
+      value.previousOrderReference.trim().length === 0)
+  ) {
+    throw new BridgeContractValidationError(
+      "previousOrderReference must be a non-empty string, null, or omitted.",
+    );
+  }
+  if (
+    value.orderKind === "additional" &&
+    (!Number.isInteger(value.serviceSequence) ||
+      Number(value.serviceSequence) < 2 ||
+      typeof value.rootOrderReference !== "string" ||
+      typeof value.previousOrderReference !== "string")
+  ) {
+    throw new BridgeContractValidationError(
+      "Additional orders require sequence, root, and previous references.",
+    );
+  }
+
   return {
     schemaVersion: KITCHEN_PRINT_SCHEMA_VERSION,
     jobType: "kitchen_order",
@@ -374,6 +427,19 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
     restaurantName: requireString(value.restaurantName, "restaurantName"),
     orderId: requireString(value.orderId, "orderId"),
     orderReference: requireString(value.orderReference, "orderReference"),
+    ...(value.orderKind === "initial" || value.orderKind === "additional"
+      ? { orderKind: value.orderKind }
+      : {}),
+    ...(typeof value.serviceSequence === "number"
+      ? { serviceSequence: value.serviceSequence }
+      : {}),
+    ...(typeof value.rootOrderReference === "string"
+      ? { rootOrderReference: value.rootOrderReference }
+      : {}),
+    ...(typeof value.previousOrderReference === "string" ||
+    value.previousOrderReference === null
+      ? { previousOrderReference: value.previousOrderReference }
+      : {}),
     tableNumber: Number(value.tableNumber),
     createdAt: requireIsoTimestamp(value.createdAt, "createdAt"),
     currency: requireString(value.currency, "currency"),

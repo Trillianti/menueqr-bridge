@@ -71,6 +71,30 @@ describe("bridge contract validation", () => {
     ).toThrow("decimal");
   });
 
+  it("validates follow-up order linkage without requiring it from older jobs", () => {
+    expect(
+      parseKitchenPrintJob({
+        ...validKitchenJob,
+        orderKind: "additional",
+        serviceSequence: 2,
+        rootOrderReference: "1048",
+        previousOrderReference: "1048",
+      }),
+    ).toMatchObject({
+      orderKind: "additional",
+      serviceSequence: 2,
+      previousOrderReference: "1048",
+    });
+    expect(() =>
+      parseKitchenPrintJob({
+        ...validKitchenJob,
+        orderKind: "additional",
+        serviceSequence: 1,
+      }),
+    ).toThrow("Additional orders require");
+    expect(parseKitchenPrintJob(validKitchenJob).orderKind).toBeUndefined();
+  });
+
   it("validates lease metadata before a job can be passed to execution", () => {
     expect(
       parseBridgeJobEnvelope({

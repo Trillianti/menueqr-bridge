@@ -4,6 +4,9 @@ export type BonDocument = {
   title: "BESTELLUNG";
   restaurantName: string;
   orderReference: string;
+  additionalOrder: boolean;
+  serviceSequence: number;
+  previousOrderReference: string | null;
   tableLabel: string;
   localTimeLabel: string;
   localDateLabel: string;
@@ -49,6 +52,11 @@ export function buildBonDocument(
     title: "BESTELLUNG",
     restaurantName: sanitizeText(job.restaurantName, 120),
     orderReference: sanitizeText(job.orderReference, 80),
+    additionalOrder: job.orderKind === "additional",
+    serviceSequence: job.serviceSequence ?? 1,
+    previousOrderReference: job.previousOrderReference
+      ? sanitizeText(job.previousOrderReference, 80)
+      : null,
     tableLabel: `TISCH ${job.tableNumber}`,
     localTimeLabel: local.time,
     localDateLabel: local.date,
@@ -131,6 +139,23 @@ function documentLines(
   const lines: string[] = [];
 
   if (document.reprint) lines.push(REPRINT_MARKER, "");
+  if (document.additionalOrder) {
+    lines.push(
+      centerLine(
+        `***** NACHBESTELLUNG ${document.serviceSequence} *****`,
+        width,
+      ),
+      ...(document.previousOrderReference
+        ? [
+            `Zu Bestellung #${printableText(
+              document.previousOrderReference,
+              encoding,
+            )}`,
+          ]
+        : []),
+      "",
+    );
+  }
   if (layoutProfile === "compact") {
     lines.push(
       line,

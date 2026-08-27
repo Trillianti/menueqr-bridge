@@ -173,10 +173,62 @@ describe("order delivery reliability scenario matrix", () => {
       expect.any(AbortSignal),
     );
   });
+
+  it("prints a follow-up as a separate linked bon containing only new positions", async () => {
+    const harness = createHarness(join(directory, "ledger.json"));
+    const first = leasedJob(20);
+    const followUpBase = leasedJob(21);
+    const followUp = {
+      ...followUpBase,
+      job: {
+        ...followUpBase.job,
+        payload: {
+          ...followUpBase.job.payload,
+          orderKind: "additional",
+          serviceSequence: 2,
+          rootOrderReference: first.job.payload.orderReference,
+          previousOrderReference: first.job.payload.orderReference,
+          items: [
+            {
+              itemId: "follow-up-drink",
+              name: "Traubensaft",
+              variation: null,
+              notes: null,
+              quantity: 2,
+              unitPrice: "4.20",
+              lineTotal: "8.40",
+            },
+          ],
+          totalAmount: "8.40",
+        },
+      },
+    };
+
+    await harness.executor.handoff(
+      credential,
+      first,
+      new AbortController().signal,
+    );
+    await harness.executor.handoff(
+      credential,
+      followUp,
+      new AbortController().signal,
+    );
+
+    expect(harness.adapter.execute).toHaveBeenCalledTimes(2);
+    const followUpText = harness.printedBonText[1] ?? "";
+    expect(followUpText).toContain("NACHBESTELLUNG 2");
+    expect(followUpText).toContain(
+      `Zu Bestellung #${first.job.payload.orderReference}`,
+    );
+    expect(followUpText).toContain("2 x Traubensaft");
+    expect(followUpText).not.toContain(`Gericht 20`);
+  });
 });
 
 function createHarness(ledgerPath: string) {
   const printedReferences: string[] = [];
+  const printedBonText: string[] = [];
   const adapter = {
     id: "scenario-printer",
     version: 1,
@@ -188,6 +240,7 @@ function createHarness(ledgerPath: string) {
     execute: jest.fn(
       async (buffer: Uint8Array): Promise<AdapterExecutionResult> => {
         const text = Buffer.from(buffer).toString("latin1");
+        printedBonText.push(text);
         const reference = text.match(/Bestellung #(\d+)/)?.[1];
         if (reference) printedReferences.push(reference);
         return success();
@@ -205,7 +258,13 @@ function createHarness(ledgerPath: string) {
     new ExecutionLedger(ledgerPath),
     completion,
   );
-  return { adapter, completion, executor, printedReferences };
+  return {
+    adapter,
+    completion,
+    executor,
+    printedReferences,
+    printedBonText,
+  };
 }
 
 function leasedJob(index: number) {
