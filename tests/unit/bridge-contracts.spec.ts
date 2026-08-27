@@ -95,6 +95,31 @@ describe("bridge contract validation", () => {
     expect(parseKitchenPrintJob(validKitchenJob).orderKind).toBeUndefined();
   });
 
+  it("accepts known kitchen adjustments and rejects unknown actions", () => {
+    for (const orderAction of [
+      "additional",
+      "change",
+      "cancellation",
+    ] as const) {
+      const adjustment = {
+        ...validKitchenJob,
+        orderAction,
+        ...(orderAction === "additional"
+          ? {
+              orderKind: "additional",
+              serviceSequence: 2,
+              rootOrderReference: "A-100",
+              previousOrderReference: "A-100",
+            }
+          : {}),
+      };
+      expect(parseKitchenPrintJob(adjustment).orderAction).toBe(orderAction);
+    }
+    expect(() =>
+      parseKitchenPrintJob({ ...validKitchenJob, orderAction: "refund" }),
+    ).toThrow("orderAction");
+  });
+
   it("validates lease metadata before a job can be passed to execution", () => {
     expect(
       parseBridgeJobEnvelope({

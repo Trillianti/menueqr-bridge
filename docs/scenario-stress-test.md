@@ -20,6 +20,8 @@ The automated matrix covers all supported combinations of:
 - normal orders and explicit reprints;
 - linked follow-up orders with a prominent `NACHBESTELLUNG` marker, sequence,
   previous order reference, and only newly submitted positions;
+- staff additions, changes, and removals as separate `NACHBESTELLUNG`,
+  `ÄNDERUNG`, and `STORNIERUNG` tickets containing only the affected position;
 - tables one through 500, long restaurant names, order references, dates,
   times, and the Vienna daylight-saving fallback;
 - the largest public order shape accepted by the backend;

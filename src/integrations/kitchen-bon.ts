@@ -4,6 +4,7 @@ export type BonDocument = {
   title: "BESTELLUNG";
   restaurantName: string;
   orderReference: string;
+  orderAction: "additional" | "change" | "cancellation" | null;
   additionalOrder: boolean;
   serviceSequence: number;
   previousOrderReference: string | null;
@@ -52,6 +53,7 @@ export function buildBonDocument(
     title: "BESTELLUNG",
     restaurantName: sanitizeText(job.restaurantName, 120),
     orderReference: sanitizeText(job.orderReference, 80),
+    orderAction: job.orderAction ?? null,
     additionalOrder: job.orderKind === "additional",
     serviceSequence: job.serviceSequence ?? 1,
     previousOrderReference: job.previousOrderReference
@@ -139,7 +141,28 @@ function documentLines(
   const lines: string[] = [];
 
   if (document.reprint) lines.push(REPRINT_MARKER, "");
-  if (document.additionalOrder) {
+  if (document.orderAction === "cancellation") {
+    lines.push(
+      centerLine("******* STORNIERUNG *******", width),
+      `Zu Bestellung #${printableText(document.orderReference, encoding)}`,
+      "",
+    );
+  } else if (document.orderAction === "change") {
+    lines.push(
+      centerLine("******** ÄNDERUNG ********", width),
+      `Zu Bestellung #${printableText(document.orderReference, encoding)}`,
+      "",
+    );
+  } else if (document.orderAction === "additional") {
+    lines.push(
+      centerLine(
+        `***** NACHBESTELLUNG ${document.serviceSequence} *****`,
+        width,
+      ),
+      `Zu Bestellung #${printableText(document.orderReference, encoding)}`,
+      "",
+    );
+  } else if (document.additionalOrder) {
     lines.push(
       centerLine(
         `***** NACHBESTELLUNG ${document.serviceSequence} *****`,
@@ -195,7 +218,7 @@ function documentLines(
         ...wrapIndentedText(printableText(item.variation, encoding), width),
       );
     }
-    if (layoutProfile === "detailed") {
+    if (layoutProfile === "detailed" && !document.orderAction) {
       lines.push(
         ...priceLines(
           formatMoney(item.unitPrice, document.currency, encoding),
@@ -215,7 +238,11 @@ function documentLines(
     if (index < document.lines.length - 1) lines.push("");
   });
 
-  if (layoutProfile === "detailed" || document.notes) lines.push(divider);
+  if (
+    (layoutProfile === "detailed" && !document.orderAction) ||
+    document.notes
+  )
+    lines.push(divider);
   if (document.notes) {
     lines.push(
       "",
@@ -228,7 +255,7 @@ function documentLines(
       divider,
     );
   }
-  if (layoutProfile === "detailed") {
+  if (layoutProfile === "detailed" && !document.orderAction) {
     lines.push(
       alignColumns(
         "GESAMT:",

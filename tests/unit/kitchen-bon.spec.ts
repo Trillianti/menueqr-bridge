@@ -272,6 +272,35 @@ GESAMT:                  51,90 €
     expect(output.join("\n")).toContain("Zu Bestellung #1049");
   });
 
+  it.each([
+    ["additional", "NACHBESTELLUNG 2"],
+    ["change", "ÄNDERUNG"],
+    ["cancellation", "STORNIERUNG"],
+  ] as const)(
+    "renders a staff %s ticket with only the affected position",
+    (orderAction, marker) => {
+      const output = lines({
+        ...sampleJob,
+        orderAction,
+        orderKind: orderAction === "additional" ? "additional" : "initial",
+        serviceSequence: orderAction === "additional" ? 2 : 1,
+        rootOrderReference: "1048",
+        previousOrderReference:
+          orderAction === "additional" ? "1048" : null,
+        notes: null,
+        items: [sampleJob.items[2]],
+        totalAmount: "8.40",
+      });
+      const text = output.join("\n");
+      expect(text).toContain(marker);
+      expect(text).toContain("Zu Bestellung #1048");
+      expect(text).toContain("2 x Traubensaft");
+      expect(text).not.toContain("Schnitzel");
+      expect(text).not.toContain("GESAMT:");
+      expect(text).not.toContain("8,40 €");
+    },
+  );
+
   it("formats and rounds real decimal snapshots as German currency", () => {
     expect(formatMoney("18", "EUR")).toBe("18,00 €");
     expect(formatMoney("7.5", "EUR")).toBe("7,50 €");

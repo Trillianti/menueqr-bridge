@@ -80,6 +80,7 @@ export type KitchenPrintJobV1 = {
   restaurantName: string;
   orderId: string;
   orderReference: string;
+  orderAction?: "additional" | "change" | "cancellation";
   orderKind?: "initial" | "additional";
   serviceSequence?: number;
   rootOrderReference?: string;
@@ -371,6 +372,16 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
   }
 
   if (
+    value.orderAction !== undefined &&
+    value.orderAction !== "additional" &&
+    value.orderAction !== "change" &&
+    value.orderAction !== "cancellation"
+  ) {
+    throw new BridgeContractValidationError(
+      "orderAction must be additional, change, or cancellation.",
+    );
+  }
+  if (
     value.orderKind !== undefined &&
     value.orderKind !== "initial" &&
     value.orderKind !== "additional"
@@ -427,6 +438,11 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
     restaurantName: requireString(value.restaurantName, "restaurantName"),
     orderId: requireString(value.orderId, "orderId"),
     orderReference: requireString(value.orderReference, "orderReference"),
+    ...(value.orderAction === "additional" ||
+    value.orderAction === "change" ||
+    value.orderAction === "cancellation"
+      ? { orderAction: value.orderAction }
+      : {}),
     ...(value.orderKind === "initial" || value.orderKind === "additional"
       ? { orderKind: value.orderKind }
       : {}),
