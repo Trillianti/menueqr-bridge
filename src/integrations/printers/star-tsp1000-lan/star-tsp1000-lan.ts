@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { lookup } from "node:dns/promises";
+import { lookup, reverse } from "node:dns/promises";
 import { isIP, Socket } from "node:net";
 import { networkInterfaces, type NetworkInterfaceInfo } from "node:os";
 
@@ -27,6 +27,9 @@ export type PrinterHostResolver = (
   hostname: string,
   options: { all: true; verbatim: true },
 ) => Promise<ReadonlyArray<{ address: string; family: number }>>;
+export type PrinterReverseDnsResolver = (
+  address: string,
+) => Promise<readonly string[]>;
 export type NetworkInterfacesProvider = () => NodeJS.Dict<
   NetworkInterfaceInfo[]
 >;
@@ -51,6 +54,7 @@ const DISCOVERY_PORT = 9100;
 const DISCOVERY_TIMEOUT_MS = 350;
 const DISCOVERY_CONCURRENCY = 20;
 const MAX_DISCOVERY_HOSTS = 254;
+const DISCOVERY_NAME_TIMEOUT_MS = 500;
 
 export class StarTsp1000LanAdapter implements IntegrationAdapter<
   StarTsp1000LanConfiguration,
@@ -68,6 +72,7 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
       lookup(hostname, options),
     private readonly getNetworkInterfaces: NetworkInterfacesProvider = networkInterfaces,
     private readonly probePort: PrinterPortProbe = probePrinterPort,
+    private readonly reverseDns: PrinterReverseDnsResolver = reverse,
   ) {}
 
   validateConfiguration(value: unknown): StarTsp1000LanConfiguration {
@@ -206,15 +211,38 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
         return available ? host : null;
       },
     );
-    return reachable
-      .filter((host): host is string => host !== null)
-      .map((host) => ({
+    const candidates = await mapWithConcurrency(
+      reachable.filter((host): host is string => host !== null),
+      DISCOVERY_CONCURRENCY,
+      async (host) => ({
         id: `star-lan:${host}:${DISCOVERY_PORT}`,
-        displayName: "Netzwerkdrucker",
+        displayName: await this.discoveredPrinterName(host),
         host,
         port: DISCOVERY_PORT,
-      }))
+      }),
+    );
+    return candidates
       .sort((left, right) => compareIpv4(left.host, right.host));
+  }
+
+  private async discoveredPrinterName(host: string): Promise<string> {
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      const hostnames = await Promise.race<readonly string[]>([
+        this.reverseDns(host),
+        new Promise<readonly string[]>((resolve) => {
+          timeout = setTimeout(() => resolve([]), DISCOVERY_NAME_TIMEOUT_MS);
+        }),
+      ]);
+      const name = hostnames
+        .map((hostname) => hostname.trim().replace(/\.$/, ""))
+        .find(isSafePrinterDisplayName);
+      return name ?? `Netzwerkdrucker (${host})`;
+    } catch {
+      return `Netzwerkdrucker (${host})`;
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
   }
 
   private async connectAndClose(
@@ -339,6 +367,10 @@ function isAllowedResolvedAddress(
 
 function isLoopbackHost(host: string): boolean {
   return host === "localhost" || host === "127.0.0.1" || host === "::1";
+}
+
+function isSafePrinterDisplayName(value: string | undefined): value is string {
+  return Boolean(value && value.length <= 253 && !/[\u0000-\u001f\u007f]/.test(value));
 }
 
 async function mapWithConcurrency<Input, Output>(

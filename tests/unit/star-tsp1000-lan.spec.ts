@@ -89,6 +89,9 @@ describe("Star TSP1000 LAN configuration", () => {
     const probe = jest.fn(async (host: string) =>
       ["192.168.8.4", "192.168.8.9", "192.168.8.25"].includes(host),
     );
+    const reverseDns = jest.fn(async (host: string) =>
+      host === "192.168.8.9" ? ["Kitchen-printer.local."] : [],
+    );
     const adapterWithDiscovery = new StarTsp1000LanAdapter(
       undefined,
       false,
@@ -106,6 +109,7 @@ describe("Star TSP1000 LAN configuration", () => {
           vpn0: [{ address: "10.8.0.2", family: "IPv4", internal: false }],
         }) as never,
       probe,
+      reverseDns,
     );
 
     await expect(
@@ -113,19 +117,19 @@ describe("Star TSP1000 LAN configuration", () => {
     ).resolves.toEqual([
       {
         id: "star-lan:192.168.8.4:9100",
-        displayName: "Netzwerkdrucker",
+        displayName: "Netzwerkdrucker (192.168.8.4)",
         host: "192.168.8.4",
         port: 9100,
       },
       {
         id: "star-lan:192.168.8.9:9100",
-        displayName: "Netzwerkdrucker",
+        displayName: "Kitchen-printer.local",
         host: "192.168.8.9",
         port: 9100,
       },
       {
         id: "star-lan:192.168.8.25:9100",
-        displayName: "Netzwerkdrucker",
+        displayName: "Netzwerkdrucker (192.168.8.25)",
         host: "192.168.8.25",
         port: 9100,
       },
@@ -148,6 +152,8 @@ describe("Star TSP1000 LAN configuration", () => {
       expect.anything(),
       expect.anything(),
     );
+    expect(reverseDns).toHaveBeenCalledTimes(3);
+    expect(reverseDns).toHaveBeenCalledWith("192.168.8.9");
     expect(probe).not.toHaveBeenCalledWith(
       "10.8.0.1",
       expect.anything(),
