@@ -1,5 +1,12 @@
 # Contributor Guidelines
 
+This is the canonical and only source repository for the MenüQR Bridge desktop
+application. Never mirror desktop source back into `menuqr/windows-bridge`.
+Cross-layer work may also require backend/dashboard changes in the adjacent
+`/Users/dmytroshatokhin/Documents/menuqr` repository, but Electron, printers,
+bon rendering, local runtime, installer, signing, update, and desktop release
+changes always belong here.
+
 ## Repository map
 
 - `src/main/` — Electron lifecycle, pairing, updates, tray and diagnostics.
