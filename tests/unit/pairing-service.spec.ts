@@ -18,9 +18,10 @@ describe("desktop pairing service", () => {
       createDeviceCode: jest.fn().mockResolvedValue({
         deviceCode: "code_1",
         userCode: "ABCD-1234",
-        verificationUri: "https://menueqr.de/dashboard/settings/bridge",
+        verificationUri:
+          "https://www.menueqr.de/dashboard/settings/integrations",
         verificationUriComplete:
-          "https://menueqr.de/dashboard/settings/bridge?code=ABCD-1234",
+          "https://www.menueqr.de/dashboard/settings/integrations?code=ABCD-1234",
         expiresAt: new Date(Date.now() + 60_000).toISOString(),
         pollingIntervalSeconds: 1,
       }),
@@ -51,7 +52,7 @@ describe("desktop pairing service", () => {
       appVersion: "0.1.0",
       deviceFingerprint: "b2a8b955-0841-4a22-a9d4-3c733e4a9091",
       deviceName: "Kitchen PC",
-      verificationHosts: ["menueqr.de"],
+      verificationHosts: ["www.menueqr.de"],
       wait: jest.fn().mockResolvedValue(false),
     });
     return { api, store, opener, service };
@@ -63,7 +64,7 @@ describe("desktop pairing service", () => {
     expect(opener.openExternal).not.toHaveBeenCalled();
     await service.openPairingBrowser();
     expect(opener.openExternal).toHaveBeenCalledWith(
-      "https://menueqr.de/dashboard/settings/bridge?code=ABCD-1234",
+      "https://www.menueqr.de/dashboard/settings/integrations?code=ABCD-1234",
     );
     expect(state).toMatchObject({
       kind: "waiting_for_approval",

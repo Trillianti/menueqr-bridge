@@ -1234,9 +1234,22 @@ pairingButton.addEventListener("click", () => {
     } else {
       pairingButton.disabled = true;
       pairingButton.textContent = "Code wird erstellt";
-      await window.menuqrBridge.beginPairing();
+      const nextPairing = await window.menuqrBridge.beginPairing();
+      await refreshPairing();
+      if (
+        nextPairing.kind === "waiting_for_approval" ||
+        nextPairing.kind === "slow_down"
+      ) {
+        try {
+          await window.menuqrBridge.openPairingBrowser();
+          heroPairingOpenButton.textContent = "Browser geöffnet";
+        } catch {
+          heroPairingOpenButton.textContent = "Browser öffnen";
+          heroPairingOpenButton.disabled = false;
+        }
+      }
     }
-    await refreshPairing();
+    if (pairing.kind === "paired") await refreshPairing();
     await refreshDeviceRuntime();
   })().catch(() => {
     pairingButton.disabled = false;

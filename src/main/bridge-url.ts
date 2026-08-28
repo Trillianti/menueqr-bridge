@@ -2,6 +2,13 @@ export type BridgeApiUrlOptions = {
   allowInsecureLocal?: boolean;
 };
 
+export const DEFAULT_BRIDGE_API_BASE_URL = "https://api.menueqr.de/api";
+export const DEFAULT_BRIDGE_VERIFICATION_HOSTS = [
+  "www.menueqr.de",
+  "menueqr.de",
+  "app.menueqr.de",
+] as const;
+
 export function validateBridgeApiBaseUrl(
   value: string,
   options: BridgeApiUrlOptions = {},

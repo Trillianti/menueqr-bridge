@@ -1,6 +1,15 @@
-import { validateBridgeApiBaseUrl } from "../../src/main/bridge-url";
+import {
+  DEFAULT_BRIDGE_API_BASE_URL,
+  DEFAULT_BRIDGE_VERIFICATION_HOSTS,
+  validateBridgeApiBaseUrl,
+} from "../../src/main/bridge-url";
 
 describe("bridge API URL", () => {
+  it("uses the direct production API and allows the canonical browser host", () => {
+    expect(DEFAULT_BRIDGE_API_BASE_URL).toBe("https://api.menueqr.de/api");
+    expect(DEFAULT_BRIDGE_VERIFICATION_HOSTS).toContain("www.menueqr.de");
+  });
+
   it("accepts a credential-free HTTPS endpoint", () => {
     expect(validateBridgeApiBaseUrl("https://menueqr.de/api/")).toBe(
       "https://menueqr.de/api",

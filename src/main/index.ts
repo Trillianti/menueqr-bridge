@@ -20,7 +20,11 @@ import { FOUNDATION_RUNTIME_STATE } from "../core/foundation-runtime";
 import { BridgeRuntime } from "../core/bridge-runtime";
 import { RuntimeStore } from "../core/runtime-store";
 import { AutostartAdapter } from "./autostart";
-import { validateBridgeApiBaseUrl } from "./bridge-url";
+import {
+  DEFAULT_BRIDGE_API_BASE_URL,
+  DEFAULT_BRIDGE_VERIFICATION_HOSTS,
+  validateBridgeApiBaseUrl,
+} from "./bridge-url";
 import { DiagnosticLog } from "./diagnostic-log";
 import { DiagnosticsService } from "./diagnostics-service";
 import { DeviceFingerprintStore } from "./device-fingerprint-store";
@@ -521,12 +525,12 @@ if (!app.requestSingleInstanceLock()) {
     const localDevelopment =
       !app.isPackaged && process.env.MENUEQR_BRIDGE_LOCAL_DEVELOPMENT === "1";
     const apiBaseUrl = validateBridgeApiBaseUrl(
-      process.env.MENUEQR_BRIDGE_API_URL ?? "https://menueqr.de/api",
+      process.env.MENUEQR_BRIDGE_API_URL ?? DEFAULT_BRIDGE_API_BASE_URL,
       { allowInsecureLocal: localDevelopment },
     );
     const verificationHosts = (
       process.env.MENUEQR_BRIDGE_VERIFICATION_HOSTS ??
-      "menueqr.de,app.menueqr.de"
+      DEFAULT_BRIDGE_VERIFICATION_HOSTS.join(",")
     )
       .split(",")
       .map((host) => host.trim().toLowerCase())
