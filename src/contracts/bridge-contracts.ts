@@ -80,11 +80,22 @@ export type KitchenPrintJobV1 = {
   restaurantName: string;
   orderId: string;
   orderReference: string;
-  orderAction?: "additional" | "change" | "cancellation";
+  orderAction?:
+    | "additional"
+    | "change"
+    | "cancellation"
+    | "full_cancellation";
   orderKind?: "initial" | "additional";
   serviceSequence?: number;
   rootOrderReference?: string;
   previousOrderReference?: string | null;
+  previousItem?: {
+    name: string;
+    variation: string | null;
+    notes: string | null;
+    quantity: number;
+  } | null;
+  quantityDelta?: number;
   tableNumber: number;
   createdAt: string;
   currency: string;
@@ -375,10 +386,67 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
     value.orderAction !== undefined &&
     value.orderAction !== "additional" &&
     value.orderAction !== "change" &&
-    value.orderAction !== "cancellation"
+    value.orderAction !== "cancellation" &&
+    value.orderAction !== "full_cancellation"
   ) {
     throw new BridgeContractValidationError(
-      "orderAction must be additional, change, or cancellation.",
+      "orderAction must be additional, change, cancellation, or full_cancellation.",
+    );
+  }
+  let previousItem: KitchenPrintJobV1["previousItem"];
+  if (value.previousItem !== undefined && value.previousItem !== null) {
+    if (!isRecord(value.previousItem)) {
+      throw new BridgeContractValidationError(
+        "previousItem must be an object, null, or omitted.",
+      );
+    }
+    if (
+      !Number.isInteger(value.previousItem.quantity) ||
+      Number(value.previousItem.quantity) < 1
+    ) {
+      throw new BridgeContractValidationError(
+        "previousItem.quantity must be positive.",
+      );
+    }
+    if (
+      value.previousItem.variation !== null &&
+      typeof value.previousItem.variation !== "string"
+    ) {
+      throw new BridgeContractValidationError(
+        "previousItem.variation must be a string or null.",
+      );
+    }
+    if (
+      value.previousItem.notes !== null &&
+      typeof value.previousItem.notes !== "string"
+    ) {
+      throw new BridgeContractValidationError(
+        "previousItem.notes must be a string or null.",
+      );
+    }
+    previousItem = {
+      name: requireString(value.previousItem.name, "previousItem.name"),
+      variation: value.previousItem.variation,
+      notes: value.previousItem.notes,
+      quantity: Number(value.previousItem.quantity),
+    };
+  } else if (value.previousItem === null) {
+    previousItem = null;
+  }
+  if (
+    value.quantityDelta !== undefined &&
+    !Number.isInteger(value.quantityDelta)
+  ) {
+    throw new BridgeContractValidationError(
+      "quantityDelta must be an integer when provided.",
+    );
+  }
+  if (
+    value.orderAction === "change" &&
+    (!previousItem || !Number.isInteger(value.quantityDelta))
+  ) {
+    throw new BridgeContractValidationError(
+      "Change tickets require previousItem and quantityDelta.",
     );
   }
   if (
@@ -440,7 +508,8 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
     orderReference: requireString(value.orderReference, "orderReference"),
     ...(value.orderAction === "additional" ||
     value.orderAction === "change" ||
-    value.orderAction === "cancellation"
+    value.orderAction === "cancellation" ||
+    value.orderAction === "full_cancellation"
       ? { orderAction: value.orderAction }
       : {}),
     ...(value.orderKind === "initial" || value.orderKind === "additional"
@@ -455,6 +524,10 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
     ...(typeof value.previousOrderReference === "string" ||
     value.previousOrderReference === null
       ? { previousOrderReference: value.previousOrderReference }
+      : {}),
+    ...(previousItem !== undefined ? { previousItem } : {}),
+    ...(typeof value.quantityDelta === "number"
+      ? { quantityDelta: value.quantityDelta }
       : {}),
     tableNumber: Number(value.tableNumber),
     createdAt: requireIsoTimestamp(value.createdAt, "createdAt"),

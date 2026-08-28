@@ -100,10 +100,22 @@ describe("bridge contract validation", () => {
       "additional",
       "change",
       "cancellation",
+      "full_cancellation",
     ] as const) {
       const adjustment = {
         ...validKitchenJob,
         orderAction,
+        ...(orderAction === "change"
+          ? {
+              previousItem: {
+                name: "Flammkuchen",
+                variation: null,
+                notes: null,
+                quantity: 1,
+              },
+              quantityDelta: 1,
+            }
+          : { quantityDelta: orderAction === "additional" ? 2 : -2 }),
         ...(orderAction === "additional"
           ? {
               orderKind: "additional",

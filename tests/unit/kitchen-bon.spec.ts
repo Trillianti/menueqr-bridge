@@ -276,6 +276,7 @@ GESAMT:                  51,90 €
     ["additional", "NACHBESTELLUNG 2"],
     ["change", "ÄNDERUNG"],
     ["cancellation", "STORNIERUNG"],
+    ["full_cancellation", "GESAMTE BESTELLUNG"],
   ] as const)(
     "renders a staff %s ticket with only the affected position",
     (orderAction, marker) => {
@@ -287,6 +288,22 @@ GESAMT:                  51,90 €
         rootOrderReference: "1048",
         previousOrderReference:
           orderAction === "additional" ? "1048" : null,
+        previousItem:
+          orderAction === "change"
+            ? {
+                name: "Traubensaft",
+                variation: null,
+                notes: null,
+                quantity: 1,
+              }
+            : null,
+        quantityDelta:
+          orderAction === "additional"
+            ? 2
+            : orderAction === "cancellation" ||
+                orderAction === "full_cancellation"
+              ? -2
+              : 1,
         notes: null,
         items: [sampleJob.items[2]],
         totalAmount: "8.40",
@@ -298,8 +315,126 @@ GESAMT:                  51,90 €
       expect(text).not.toContain("Schnitzel");
       expect(text).not.toContain("GESAMT:");
       expect(text).not.toContain("8,40 €");
+      if (orderAction === "change") {
+        expect(text).toContain("ALT: 1 x Traubensaft");
+        expect(text).toContain("NEU: 2 x Traubensaft");
+        expect(text).toContain("ZUSÄTZLICH: 1");
+      }
+      if (
+        orderAction === "cancellation" ||
+        orderAction === "full_cancellation"
+      ) {
+        expect(text).toContain("STORNIEREN: 2");
+      }
     },
   );
+
+  it("makes quantity decreases and note-only changes unambiguous", () => {
+    const decreased = lines({
+      ...sampleJob,
+      orderAction: "change",
+      previousItem: {
+        name: "Schnitzel",
+        variation: null,
+        notes: null,
+        quantity: 3,
+      },
+      quantityDelta: -2,
+      items: [{ ...sampleJob.items[0], quantity: 1, lineTotal: "18.00" }],
+      totalAmount: "18.00",
+    }).join("\n");
+    expect(decreased).toContain("ALT: 3 x Schnitzel");
+    expect(decreased).toContain("NEU: 1 x Schnitzel");
+    expect(decreased).toContain("STORNIEREN: 2");
+
+    const noteOnly = lines({
+      ...sampleJob,
+      orderAction: "change",
+      previousItem: {
+        name: "Schnitzel",
+        variation: null,
+        notes: null,
+        quantity: 2,
+      },
+      quantityDelta: 0,
+      items: [{ ...sampleJob.items[0], notes: "ohne Salz" }],
+      totalAmount: "36.00",
+    }).join("\n");
+    expect(noteOnly).toContain("MENGE UNVERÄNDERT");
+    expect(noteOnly).toContain("NEU HINWEIS:");
+    expect(noteOnly).toContain("OHNE SALZ");
+
+    const removedNote = lines({
+      ...sampleJob,
+      orderAction: "change",
+      previousItem: {
+        name: "Schnitzel",
+        variation: null,
+        notes: "ohne Salz",
+        quantity: 2,
+      },
+      quantityDelta: 0,
+      items: [{ ...sampleJob.items[0], notes: null }],
+      totalAmount: "36.00",
+    }).join("\n");
+    expect(removedNote).toContain("ALT HINWEIS:");
+    expect(removedNote).toContain("NEU HINWEIS: KEIN HINWEIS");
+  });
+
+  it("lists every affected position on a full-order cancellation", () => {
+    const text = lines({
+      ...sampleJob,
+      orderAction: "full_cancellation",
+      quantityDelta: -5,
+    }).join("\n");
+    expect(text).toContain("GESAMTE BESTELLUNG");
+    expect(text).toContain("2 x Schnitzel");
+    expect(text).toContain("1 x Beilagensalat");
+    expect(text).toContain("2 x Traubensaft");
+    expect(text.match(/STORNIEREN:/g)).toHaveLength(3);
+    expect(text).not.toContain("GESAMT:");
+  });
+
+  it("keeps reprint and cancellation meanings visible at the same time", () => {
+    const output = lines({
+      ...sampleJob,
+      orderAction: "cancellation",
+      quantityDelta: -2,
+      reprint: true,
+      items: [sampleJob.items[0]],
+      totalAmount: "36.00",
+    });
+    expect(output[0]).toBe("******* NACHDRUCK *******");
+    expect(output.join("\n")).toContain("STORNIERUNG");
+    expect(output.join("\n")).toContain("STORNIEREN: 2");
+  });
+
+  it("keeps identical dishes with different kitchen notes as separate lines", () => {
+    const text = lines({
+      ...sampleJob,
+      notes: null,
+      items: [
+        {
+          ...sampleJob.items[0],
+          itemId: "schnitzel-no-onion",
+          quantity: 1,
+          lineTotal: "18.00",
+          notes: "ohne Zwiebeln",
+        },
+        {
+          ...sampleJob.items[0],
+          itemId: "schnitzel-no-salt",
+          quantity: 1,
+          lineTotal: "18.00",
+          notes: "ohne Salz",
+        },
+      ],
+      totalAmount: "36.00",
+    }).join("\n");
+    expect(text.match(/1 x Schnitzel/g)).toHaveLength(2);
+    expect(text).toContain("OHNE ZWIEBELN");
+    expect(text).toContain("OHNE SALZ");
+  });
 
   it("formats and rounds real decimal snapshots as German currency", () => {
     expect(formatMoney("18", "EUR")).toBe("18,00 €");

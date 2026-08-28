@@ -4,10 +4,22 @@ export type BonDocument = {
   title: "BESTELLUNG";
   restaurantName: string;
   orderReference: string;
-  orderAction: "additional" | "change" | "cancellation" | null;
+  orderAction:
+    | "additional"
+    | "change"
+    | "cancellation"
+    | "full_cancellation"
+    | null;
   additionalOrder: boolean;
   serviceSequence: number;
   previousOrderReference: string | null;
+  previousItem: {
+    name: string;
+    variation: string | null;
+    notes: string | null;
+    quantity: number;
+  } | null;
+  quantityDelta: number;
   tableLabel: string;
   localTimeLabel: string;
   localDateLabel: string;
@@ -59,6 +71,19 @@ export function buildBonDocument(
     previousOrderReference: job.previousOrderReference
       ? sanitizeText(job.previousOrderReference, 80)
       : null,
+    previousItem: job.previousItem
+      ? {
+          name: sanitizeText(job.previousItem.name, 240),
+          variation: job.previousItem.variation
+            ? sanitizeText(job.previousItem.variation, 160)
+            : null,
+          notes: job.previousItem.notes
+            ? sanitizeText(job.previousItem.notes, 600)
+            : null,
+          quantity: job.previousItem.quantity,
+        }
+      : null,
+    quantityDelta: job.quantityDelta ?? 0,
     tableLabel: `TISCH ${job.tableNumber}`,
     localTimeLabel: local.time,
     localDateLabel: local.date,
@@ -141,7 +166,14 @@ function documentLines(
   const lines: string[] = [];
 
   if (document.reprint) lines.push(REPRINT_MARKER, "");
-  if (document.orderAction === "cancellation") {
+  if (document.orderAction === "full_cancellation") {
+    lines.push(
+      centerLine("******* STORNIERUNG *******", width),
+      centerLine("GESAMTE BESTELLUNG", width),
+      `Zu Bestellung #${printableText(document.orderReference, encoding)}`,
+      "",
+    );
+  } else if (document.orderAction === "cancellation") {
     lines.push(
       centerLine("******* STORNIERUNG *******", width),
       `Zu Bestellung #${printableText(document.orderReference, encoding)}`,
@@ -206,6 +238,100 @@ function documentLines(
   }
 
   document.lines.forEach((item, index) => {
+    if (document.orderAction === "change" && document.previousItem) {
+      lines.push(
+        ...wrapPrefixedText(
+          "ALT: ",
+          `${document.previousItem.quantity} x ${printableText(
+            document.previousItem.name,
+            encoding,
+          )}`,
+          width,
+        ),
+      );
+      if (document.previousItem.variation) {
+        lines.push(
+          ...wrapIndentedText(
+            printableText(document.previousItem.variation, encoding),
+            width,
+          ),
+        );
+      }
+      if (document.previousItem.notes) {
+        lines.push(
+          "ALT HINWEIS:",
+          ...wrapIndentedText(
+            printableText(
+              document.previousItem.notes.toLocaleUpperCase("de-DE"),
+              encoding,
+            ),
+            width,
+          ),
+        );
+      }
+      lines.push(
+        ...wrapPrefixedText(
+          "NEU: ",
+          `${item.quantity} x ${printableText(item.name, encoding)}`,
+          width,
+        ),
+      );
+      if (item.variation) {
+        lines.push(
+          ...wrapIndentedText(printableText(item.variation, encoding), width),
+        );
+      }
+      if (document.quantityDelta > 0) {
+        lines.push(`ZUSÄTZLICH: ${document.quantityDelta}`);
+      } else if (document.quantityDelta < 0) {
+        lines.push(`STORNIEREN: ${Math.abs(document.quantityDelta)}`);
+      } else {
+        lines.push("MENGE UNVERÄNDERT");
+      }
+      if (item.notes) {
+        lines.push(
+          "NEU HINWEIS:",
+          ...wrapIndentedText(
+            printableText(item.notes.toLocaleUpperCase("de-DE"), encoding),
+            width,
+          ),
+        );
+      } else if (document.previousItem.notes) {
+        lines.push("NEU HINWEIS: KEIN HINWEIS");
+      }
+      if (index < document.lines.length - 1) lines.push("");
+      return;
+    }
+
+    if (
+      document.orderAction === "cancellation" ||
+      document.orderAction === "full_cancellation"
+    ) {
+      lines.push(
+        ...wrapPrefixedText(
+          `${item.quantity} x `,
+          printableText(item.name, encoding),
+          width,
+        ),
+      );
+      if (item.variation) {
+        lines.push(
+          ...wrapIndentedText(printableText(item.variation, encoding), width),
+        );
+      }
+      lines.push(`STORNIEREN: ${item.quantity}`);
+      if (item.notes) {
+        lines.push(
+          ...wrapIndentedText(
+            printableText(item.notes.toLocaleUpperCase("de-DE"), encoding),
+            width,
+          ),
+        );
+      }
+      if (index < document.lines.length - 1) lines.push("");
+      return;
+    }
+
     lines.push(
       ...wrapPrefixedText(
         `${item.quantity} x `,
