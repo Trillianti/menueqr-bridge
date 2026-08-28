@@ -35,6 +35,21 @@ describe("bridge contract validation", () => {
     expect(parseKitchenPrintJob(validKitchenJob)).toEqual(validKitchenJob);
   });
 
+  it("accepts an IANA restaurant time zone and rejects invalid zones", () => {
+    expect(
+      parseKitchenPrintJob({
+        ...validKitchenJob,
+        timeZone: "Europe/Kyiv",
+      }).timeZone,
+    ).toBe("Europe/Kyiv");
+    expect(() =>
+      parseKitchenPrintJob({
+        ...validKitchenJob,
+        timeZone: "Restaurant/Somewhere",
+      }),
+    ).toThrow("timeZone");
+  });
+
   it("rejects unsupported kitchen schema versions", () => {
     expect(() =>
       parseKitchenPrintJob({ ...validKitchenJob, schemaVersion: 2 })

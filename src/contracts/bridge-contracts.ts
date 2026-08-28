@@ -98,6 +98,7 @@ export type KitchenPrintJobV1 = {
   quantityDelta?: number;
   tableNumber: number;
   createdAt: string;
+  timeZone?: string;
   currency: string;
   notes: string | null;
   items: readonly KitchenPrintItemV1[];
@@ -262,6 +263,18 @@ function requireDecimal(value: unknown, field: string): string {
   return decimal;
 }
 
+function requireTimeZone(value: unknown, field: string): string {
+  const timeZone = requireString(value, field);
+  try {
+    new Intl.DateTimeFormat("en", { timeZone }).format(0);
+  } catch {
+    throw new BridgeContractValidationError(
+      `${field} must be a valid IANA time zone.`,
+    );
+  }
+  return timeZone;
+}
+
 function decimalMinorUnits(value: string): bigint {
   const [whole = "0", fraction = ""] = value.split(".");
   return BigInt(whole) * 100n + BigInt(fraction.padEnd(2, "0"));
@@ -381,6 +394,10 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
       "totalAmount must equal the sum of item line totals.",
     );
   }
+  const timeZone =
+    value.timeZone === undefined
+      ? undefined
+      : requireTimeZone(value.timeZone, "timeZone");
 
   if (
     value.orderAction !== undefined &&
@@ -531,6 +548,7 @@ export function parseKitchenPrintJob(value: unknown): KitchenPrintJobV1 {
       : {}),
     tableNumber: Number(value.tableNumber),
     createdAt: requireIsoTimestamp(value.createdAt, "createdAt"),
+    ...(timeZone ? { timeZone } : {}),
     currency: requireString(value.currency, "currency"),
     notes,
     items,

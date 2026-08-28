@@ -207,6 +207,19 @@ GESAMT:                  51,90 €
     );
   });
 
+  it("transliterates kitchen punctuation without losing allergy meaning", () => {
+    const text = lines(
+      {
+        ...sampleJob,
+        notes: "Allergie — getrennt; „ohne Nüsse“ – bestätigt…",
+      },
+      { encoding: "cp437" },
+    ).join("\n");
+    expect(text).toContain('ALLERGIE - GETRENNT; "OHNE');
+    expect(text).toContain('NÜSSE" - BESTÄTIGT...');
+    expect(text).not.toContain("ALLERGIE ?");
+  });
+
   it("accepts missing optional fields deterministically", () => {
     const { reprint: _reprint, ...withoutReprint } = sampleJob;
     const output = lines({

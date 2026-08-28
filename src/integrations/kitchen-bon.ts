@@ -57,10 +57,13 @@ const REPRINT_MARKER = "******* NACHDRUCK *******";
 
 export function buildBonDocument(
   payload: unknown,
-  timeZone = "Europe/Vienna",
+  timeZone?: string,
 ): BonDocument {
   const job = parseKitchenPrintJob(payload);
-  const local = formatLocalDateTime(job.createdAt, timeZone);
+  const local = formatLocalDateTime(
+    job.createdAt,
+    timeZone ?? job.timeZone ?? "Europe/Vienna",
+  );
   return {
     title: "BESTELLUNG",
     restaurantName: sanitizeText(job.restaurantName, 120),
@@ -608,6 +611,15 @@ function transliterate(character: string): string {
         ü: "ue",
         ß: "ss",
         "€": "EUR",
+        "—": "-",
+        "–": "-",
+        "−": "-",
+        "“": '"',
+        "”": '"',
+        "„": '"',
+        "’": "'",
+        "‘": "'",
+        "…": "...",
       } as Record<string, string>
     )[character] ?? "?"
   );

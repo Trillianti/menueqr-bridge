@@ -185,6 +185,18 @@ describe("real kitchen-order scenario matrix", () => {
     expect(beforeFallback).toContain("Bestellung #4711        25.10.26");
   });
 
+  it("uses the restaurant time zone from the job when no local override exists", () => {
+    const output = lines(
+      {
+        ...baseJob,
+        createdAt: "2026-08-28T12:30:00.000Z",
+        timeZone: "Europe/Kyiv",
+      },
+      { timeZone: undefined },
+    );
+    expect(output).toContain("TISCH 12                   15:30");
+  });
+
   it("keeps normal and reprint output distinct only through the required marker", () => {
     const normal = lines(baseJob);
     const reprint = lines({ ...baseJob, reprint: true });
