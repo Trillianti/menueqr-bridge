@@ -17,6 +17,10 @@ The automated matrix covers all supported combinations of:
 - item variations, item notes, order notes, and empty optional text;
 - German characters, unsupported Unicode, emoji, Cyrillic, control bytes, and
   long unbroken text;
+- kitchen-safe ASCII fallbacks for en/em dashes, smart quotes, apostrophes and
+  ellipses so allergy notes never degrade into ambiguous question marks;
+- the restaurant's IANA time zone from the cloud job, with a local render
+  override retained only for deterministic tests;
 - normal orders and explicit reprints;
 - linked follow-up orders with a prominent `NACHBESTELLUNG` marker, sequence,
   previous order reference, and only newly submitted positions;
