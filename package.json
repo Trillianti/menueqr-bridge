@@ -32,7 +32,7 @@
     "verify:architecture": "jest --selectProjects unit --runInBand tests/unit/architecture-boundaries.spec.ts"
   },
   "devDependencies": {
-    "@aws-sdk/client-s3": "^3.1116.0",
+    "@aws-sdk/client-s3": "^3.1120.0",
     "@playwright/test": "^1.62.1",
     "@types/jest": "^30.0.0",
     "@types/node": "^24.0.0",
