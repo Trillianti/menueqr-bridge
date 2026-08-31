@@ -6,11 +6,15 @@ describe("Star TSP1000 LAN transport", () => {
   let server: Server;
   let port = 0;
   const received: Buffer[] = [];
+  let completedClientWrites = 0;
 
   beforeAll(async () => {
-    server = createServer((socket) =>
-      socket.on("data", (data) => received.push(Buffer.from(data))),
-    );
+    server = createServer((socket) => {
+      socket.on("data", (data) => received.push(Buffer.from(data)));
+      socket.on("end", () => {
+        completedClientWrites += 1;
+      });
+    });
     await new Promise<void>((resolve) =>
       server.listen(0, "127.0.0.1", resolve),
     );
@@ -47,6 +51,7 @@ describe("Star TSP1000 LAN transport", () => {
     ).resolves.toMatchObject({ status: "succeeded", code: "PRINT_WRITTEN" });
     await new Promise((resolve) => setTimeout(resolve, 10));
     expect(Buffer.concat(received)).toEqual(payload);
+    expect(completedClientWrites).toBe(1);
   });
 
   it("classifies a canceled request without leaving the socket active", async () => {

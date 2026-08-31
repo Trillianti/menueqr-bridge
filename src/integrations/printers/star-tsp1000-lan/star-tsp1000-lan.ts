@@ -59,6 +59,12 @@ const DISCOVERY_TIMEOUT_MS = 350;
 const DISCOVERY_CONCURRENCY = 20;
 const MAX_DISCOVERY_HOSTS = 254;
 const DISCOVERY_NAME_TIMEOUT_MS = 500;
+// A successful socket.write() only means that Node accepted the bytes into its
+// local buffer. In particular, immediately destroying a TCP socket after that
+// callback can reset a connection before an older network print server has
+// consumed the complete job. End the writable side, wait for it to flush, and
+// leave a short LAN round-trip window before using destroy() as cleanup.
+const SOCKET_FIN_GRACE_MS = 300;
 
 export class StarTsp1000LanAdapter implements IntegrationAdapter<
   StarTsp1000LanConfiguration,
@@ -260,8 +266,12 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
     };
     const socket = this.socketFactory();
     await connectSocket(socket, resolved, new AbortController().signal);
-    socket.end();
-    socket.destroy();
+    await finishSocket(
+      socket,
+      Buffer.alloc(0),
+      Math.min(resolved.writeTimeoutMs, 1_000),
+      new AbortController().signal,
+    );
   }
 
   private async writeBuffer(
@@ -275,9 +285,7 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
     };
     const socket = this.socketFactory();
     await connectSocket(socket, resolved, signal);
-    await writeSocket(socket, buffer, resolved.writeTimeoutMs, signal);
-    socket.end();
-    socket.destroy();
+    await finishSocket(socket, buffer, resolved.writeTimeoutMs, signal);
   }
 
   private async resolvedAddress(host: string): Promise<string> {
@@ -525,7 +533,7 @@ function connectSocket(
   });
 }
 
-function writeSocket(
+function finishSocket(
   socket: Socket,
   buffer: Buffer,
   timeoutMs: number,
@@ -533,10 +541,13 @@ function writeSocket(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
+    let graceTimeout: ReturnType<typeof setTimeout> | undefined;
     const cleanup = () => {
       clearTimeout(timeout);
+      if (graceTimeout) clearTimeout(graceTimeout);
       socket.off("error", onError);
-      socket.off("drain", onDrain);
+      socket.off("finish", onFinish);
+      socket.off("close", onClose);
       signal.removeEventListener("abort", onAbort);
     };
     const settle = (error?: Error) => {
@@ -549,7 +560,26 @@ function writeSocket(
       } else resolve();
     };
     const onError = (error: Error) => settle(error);
-    const onDrain = () => settle();
+    const onFinish = () => {
+      // Most print servers answer our FIN and close immediately. Some older
+      // Star/Silex interfaces keep their half of the connection open while
+      // consuming the job, so do not require a remote close forever.
+      graceTimeout = setTimeout(() => {
+        socket.destroy();
+        settle();
+      }, SOCKET_FIN_GRACE_MS);
+    };
+    const onClose = (hadError: boolean) => {
+      if (hadError) {
+        settle(
+          Object.assign(new Error("Socket closed with an error"), {
+            code: "ECONNRESET",
+          }),
+        );
+        return;
+      }
+      settle();
+    };
     const onAbort = () => settle(new Error("CANCELED"));
     const timeout = setTimeout(() => {
       const error = Object.assign(new Error("Socket write timeout"), {
@@ -558,12 +588,13 @@ function writeSocket(
       settle(error);
     }, timeoutMs);
     socket.once("error", onError);
+    socket.once("finish", onFinish);
+    socket.once("close", onClose);
     if (signal.aborted) {
       onAbort();
       return;
     }
     signal.addEventListener("abort", onAbort, { once: true });
-    if (socket.write(buffer)) settle();
-    else socket.once("drain", onDrain);
+    socket.end(buffer);
   });
 }

@@ -364,6 +364,11 @@ let discoveryTestInProgress = false;
 let activeBridgeTab: "main" | "printers" | "settings" = "main";
 let printerWorkspaceView: "library" | "setup" | "details" = "library";
 const printerConnectionsInProgress = new Set<string>();
+const printerTestsInProgress = new Set<string>();
+const printerFeedbackById = new Map<
+  string,
+  { message: string; tone: "neutral" | "success" | "attention" }
+>();
 let editingPrinterId: string | null = null;
 let pendingDeletePrinterId: string | null = null;
 
@@ -493,6 +498,7 @@ function renderPrinterWorkspace(): void {
     const healthBadge = document.createElement("span");
     const checked = document.createElement("p");
     const actions = document.createElement("div");
+    const feedback = document.createElement("p");
     const connectionButton = document.createElement("button");
     const testButton = document.createElement("button");
     const editButton = document.createElement("button");
@@ -546,10 +552,13 @@ function renderPrinterWorkspace(): void {
     });
     testButton.type = "button";
     testButton.className = "button-secondary";
-    testButton.textContent = "Testbon senden";
+    testButton.textContent = printerTestsInProgress.has(printer.id)
+      ? "Testbon wird gesendet …"
+      : "Testbon senden";
+    testButton.disabled = printerTestsInProgress.has(printer.id);
     testButton.setAttribute("data-testid", "printer-test-print");
     testButton.addEventListener("click", () => {
-      void testPrinter(printer.id, testButton);
+      void testPrinter(printer.id);
     });
     editButton.type = "button";
     editButton.className = "button-quiet";
@@ -578,7 +587,15 @@ function renderPrinterWorkspace(): void {
       activateButton,
       deleteButton,
     );
-    card.append(primary, healthContainer, actions);
+    const currentFeedback = printerFeedbackById.get(printer.id);
+    feedback.className = "saved-printer-feedback";
+    feedback.dataset.tone = currentFeedback?.tone ?? "neutral";
+    feedback.textContent = currentFeedback?.message ?? "";
+    feedback.hidden = !currentFeedback;
+    feedback.setAttribute("role", "status");
+    feedback.setAttribute("aria-live", "polite");
+    feedback.setAttribute("data-testid", "saved-printer-feedback");
+    card.append(primary, healthContainer, actions, feedback);
     savedPrinterList.append(card);
   }
 
@@ -1045,17 +1062,20 @@ async function checkPrinterConnection(
     };
     const label = printerHealthLabel(health);
     if (showGlobalFeedback) {
-      serviceStatusCopy.textContent = label.detail;
-      serviceStatus.dataset.state = label.state;
+      printerFeedbackById.set(printerId, {
+        message: label.detail,
+        tone: label.state === "success" ? "success" : "attention",
+      });
     }
     renderPrinterWorkspace();
     void refreshIntegrations().catch(() => undefined);
     return health;
   } catch {
     if (showGlobalFeedback) {
-      serviceStatusCopy.textContent =
-        "Die Verbindung zu diesem Drucker konnte nicht geprüft werden.";
-      serviceStatus.dataset.state = "attention";
+      printerFeedbackById.set(printerId, {
+        message: "Die Verbindung zu diesem Drucker konnte nicht geprüft werden.",
+        tone: "attention",
+      });
     }
     return null;
   } finally {
@@ -1079,26 +1099,32 @@ async function activatePrinter(printerId: string): Promise<void> {
   void refreshIntegrations().catch(() => undefined);
 }
 
-async function testPrinter(
-  printerId: string,
-  button: HTMLButtonElement,
-): Promise<void> {
-  button.disabled = true;
+async function testPrinter(printerId: string): Promise<void> {
+  if (printerTestsInProgress.has(printerId)) return;
+  printerTestsInProgress.add(printerId);
+  printerFeedbackById.set(printerId, {
+    message: "Testbon wird vollständig an den Drucker übertragen …",
+    tone: "neutral",
+  });
+  renderPrinterWorkspace();
   try {
     const result = await window.menuqrBridge.testPrinterPrint(printerId);
-    serviceStatusCopy.textContent =
-      result.status === "succeeded"
-        ? "Der Testbon wurde an den ausgewählten Drucker gesendet."
-        : "Der Testbon konnte nicht gedruckt werden.";
-    serviceStatus.dataset.state =
-      result.status === "succeeded" ? "success" : "attention";
+    printerFeedbackById.set(printerId, {
+      message:
+        result.status === "succeeded"
+          ? "Der Testbon wurde vollständig an den Drucker übertragen."
+          : "Der Testbon konnte nicht vollständig übertragen werden.",
+      tone: result.status === "succeeded" ? "success" : "attention",
+    });
     await refreshPrinter();
   } catch {
-    serviceStatusCopy.textContent =
-      "Der Testbon konnte nicht gestartet werden.";
-    serviceStatus.dataset.state = "attention";
+    printerFeedbackById.set(printerId, {
+      message: "Der Testbon konnte nicht gestartet werden.",
+      tone: "attention",
+    });
   } finally {
-    button.disabled = false;
+    printerTestsInProgress.delete(printerId);
+    renderPrinterWorkspace();
   }
 }
 
