@@ -1370,6 +1370,7 @@ for (const form of [printerForm, printerDetailsForm]) {
   syncPrinterTransportFields(form);
 }
 window.setInterval(() => {
+  void refreshPairing().catch(() => undefined);
   void refreshDeviceRuntime().catch(() => undefined);
   void refreshPrinter().catch(() => undefined);
   void refreshUpdate().catch(() => undefined);

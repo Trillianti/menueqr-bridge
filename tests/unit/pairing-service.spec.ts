@@ -148,6 +148,16 @@ describe("desktop pairing service", () => {
     expect(service.snapshot()).toEqual({ kind: "unpaired" });
   });
 
+  it("stops presenting the restaurant immediately even if credential cleanup fails", async () => {
+    const { service, store } = setup();
+    (store.clear as jest.Mock).mockRejectedValueOnce(new Error("storage locked"));
+
+    await expect(service.clearRevokedCredential()).rejects.toThrow(
+      "storage locked",
+    );
+    expect(service.snapshot()).toEqual({ kind: "unpaired" });
+  });
+
   it("sends a printer support request only through the paired credential", async () => {
     const { service, api, store } = setup();
     (store.read as jest.Mock).mockResolvedValue(credential);

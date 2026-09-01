@@ -725,7 +725,7 @@ if (!app.requestSingleInstanceLock()) {
       route,
       {
         appVersion: app.getVersion(),
-        heartbeatFallbackSeconds: 30,
+        heartbeatFallbackSeconds: 5,
         onRevoked: async () => {
           await pairing?.clearRevokedCredential();
         },

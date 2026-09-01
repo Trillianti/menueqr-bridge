@@ -152,8 +152,8 @@ export class DesktopPairingService {
 
   async clearRevokedCredential(): Promise<void> {
     this.stopPolling();
-    await this.store.clear();
     this.setState({ kind: "unpaired" });
+    await this.store.clear();
   }
 
   async requestPrinterSupport(request: PrinterSupportRequest): Promise<void> {

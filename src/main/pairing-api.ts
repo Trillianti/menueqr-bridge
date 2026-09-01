@@ -78,7 +78,7 @@ export class HttpPairingApi implements PairingApi, BridgeRuntimeClient {
         return {
           serverTimestamp: new Date().toISOString(),
           acceptedContractVersions: [],
-          heartbeatIntervalSeconds: 30,
+          heartbeatIntervalSeconds: 5,
           runtime: { kind: "revoked", message: error.message },
         };
       }

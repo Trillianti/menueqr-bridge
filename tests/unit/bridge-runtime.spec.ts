@@ -47,17 +47,18 @@ describe("bridge runtime", () => {
       ]),
     };
     const onRevoked = jest.fn();
+    const wait = jest.fn().mockResolvedValue(false);
     const runtime = new BridgeRuntime(client, store, executor, {
       appVersion: "0.1.0",
       heartbeatFallbackSeconds: 30,
-      wait: jest.fn().mockResolvedValue(false),
+      wait,
       onRevoked,
     });
-    return { runtime, client, store, executor, onRevoked };
+    return { runtime, client, store, executor, onRevoked, wait };
   }
 
   it("starts only when paired and launches one heartbeat and one polling loop", async () => {
-    const { runtime, client } = setup();
+    const { runtime, client, wait } = setup();
     await runtime.restore();
     await expect(runtime.start(null)).resolves.toMatchObject({
       kind: "stopped",
@@ -84,6 +85,7 @@ describe("bridge runtime", () => {
       "capabilities",
     );
     expect(client.nextJob).toHaveBeenCalledTimes(1);
+    expect(wait).toHaveBeenCalledWith(5_000, expect.any(AbortSignal));
     expect(JSON.stringify(runtime.snapshot())).not.toContain(credential.token);
     runtime.stop();
   });
@@ -157,19 +159,28 @@ describe("bridge runtime", () => {
     expect(runtime.isRunning()).toBe(false);
   });
 
-  it("does not poll before the local execution route is configured", async () => {
+  it("keeps checking authorization without polling jobs before the local execution route is configured", async () => {
     const { runtime, client, executor } = setup();
     executor.readiness = jest.fn().mockResolvedValue({
       ready: false,
       code: "PRINTER_NOT_CONFIGURED",
       message: "Configure the printer.",
     });
-    await expect(runtime.start(credential)).resolves.toMatchObject({
+    await runtime.start(credential);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(runtime.snapshot()).toMatchObject({
       kind: "fatal_configuration_error",
       code: "PRINTER_NOT_CONFIGURED",
     });
-    expect(client.heartbeat).not.toHaveBeenCalled();
+    expect(client.heartbeat).toHaveBeenCalledTimes(1);
     expect(client.nextJob).not.toHaveBeenCalled();
+
+    (executor.readiness as jest.Mock).mockResolvedValue({ ready: true });
+    await runtime.start(credential);
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(client.heartbeat).toHaveBeenCalledTimes(2);
+    expect(client.nextJob).toHaveBeenCalledTimes(1);
+    runtime.stop();
   });
 
   it("persists a failed job reference instead of presenting it as completed", async () => {

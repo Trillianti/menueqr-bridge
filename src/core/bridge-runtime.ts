@@ -8,6 +8,8 @@ import type { DesktopRuntimeState } from "./runtime-state";
 import { runtimeState } from "./runtime-state";
 import type { RuntimeStore, StoredRuntimeState } from "./runtime-store";
 
+const MAX_AUTHORIZATION_CHECK_INTERVAL_SECONDS = 5;
+
 export type RuntimePollResult =
   | {
       kind: "job";
@@ -138,8 +140,10 @@ export class BridgeRuntime {
   ): Promise<DesktopRuntimeState> {
     if (!credential) return this.transition("stopped");
     if (this.paused) return this.transition("paused");
-    if (this.isRunning()) return this.state;
-    if (!(await this.isExecutionReady())) return this.state;
+    if (this.isRunning()) {
+      if (this.state.kind !== "fatal_configuration_error") return this.state;
+      this.stop();
+    }
     this.controller = new AbortController();
     this.transition("starting");
     this.track(this.heartbeatLoop(credential, this.controller.signal));
@@ -189,8 +193,11 @@ export class BridgeRuntime {
           await this.heartbeatRequest(),
           signal,
         );
-        intervalSeconds = response.heartbeatIntervalSeconds || intervalSeconds;
-        if (!this.applyHeartbeat(response)) return;
+        intervalSeconds = Math.min(
+          response.heartbeatIntervalSeconds || intervalSeconds,
+          MAX_AUTHORIZATION_CHECK_INTERVAL_SECONDS,
+        );
+        if (!(await this.applyHeartbeat(response))) return;
       } catch (error) {
         if (signal.aborted) return;
         this.transition("offline", "NETWORK_UNAVAILABLE", redactedError(error));
@@ -340,7 +347,7 @@ export class BridgeRuntime {
     });
   }
 
-  private applyHeartbeat(response: HeartbeatResponse): boolean {
+  private async applyHeartbeat(response: HeartbeatResponse): Promise<boolean> {
     if (response.runtime.kind === "feature_required") {
       this.transition(
         "feature_required",
@@ -362,9 +369,19 @@ export class BridgeRuntime {
     if (response.runtime.kind === "revoked") {
       this.transition("revoked", "REVOKED", response.runtime.message);
       this.stop();
-      void this.options.onRevoked?.();
+      try {
+        await this.options.onRevoked?.();
+      } catch (error) {
+        void this.options.log?.({
+          event: "pairing.revoked_cleanup_failed",
+          code: "CREDENTIAL_CLEAR_FAILED",
+          message: redactedError(error),
+          state: "revoked",
+        });
+      }
       return false;
     }
+    if (this.state.kind === "fatal_configuration_error") return true;
     this.transition(
       response.runtime.kind === "degraded" ? "degraded" : "ready",
     );
