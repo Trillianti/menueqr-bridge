@@ -77,10 +77,16 @@ FunctionEnd
 !endif
 
 !macro customUnInstall
-  # Electron's autostart adapter owns this per-user Run value.
-  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "MenüQR Bridge"
-  MessageBox MB_ICONQUESTION|MB_YESNO "Lokale MenüQR Bridge-Einstellungen, verschlüsselte Gerätezugangsdaten, Diagnoseinformationen und Protokolle für dieses Windows-Benutzerkonto entfernen?" IDNO keepBridgeData
-  RMDir /r "$APPDATA\${APP_PRODUCT_FILENAME}"
-  RMDir /r "$LOCALAPPDATA\${APP_PRODUCT_FILENAME}"
-  keepBridgeData:
+  # electron-builder invokes the old uninstaller as part of an update. Never
+  # prompt for or delete per-user state in that path: the new version must keep
+  # pairing, encrypted credentials, printer profiles, autostart, ledgers, and
+  # diagnostics exactly as they were.
+  ${IfNot} ${isUpdated}
+    # Electron's autostart adapter owns this per-user Run value.
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "MenüQR Bridge"
+    MessageBox MB_ICONQUESTION|MB_YESNO "Lokale MenüQR Bridge-Einstellungen, verschlüsselte Gerätezugangsdaten, Diagnoseinformationen und Protokolle für dieses Windows-Benutzerkonto entfernen?" IDNO keepBridgeData
+    RMDir /r "$APPDATA\${APP_PRODUCT_FILENAME}"
+    RMDir /r "$LOCALAPPDATA\${APP_PRODUCT_FILENAME}"
+    keepBridgeData:
+  ${EndIf}
 !macroend

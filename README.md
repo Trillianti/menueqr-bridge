@@ -118,6 +118,11 @@ all remaining MenüQR Bridge Electron processes by their exact executable name
 and waits for file handles to be released. It does not terminate unrelated
 process trees and does not require administrator privileges.
 
+The old-version uninstaller runs during an update only to replace application
+files. Its data-removal prompt, autostart removal, and user-data deletion are
+strictly disabled for that update path and remain available only during an
+explicit manual uninstall.
+
 After approval, the release workflow will submit its GitHub-hosted build to
 SignPath with origin verification before publishing it. The governing policy is
 [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).

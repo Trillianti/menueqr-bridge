@@ -42,13 +42,15 @@ describe("Windows installer configuration", () => {
     expect(installerScript).toMatch(
       /Var \/GLOBAL BridgeLaunchTarget[\s\S]*StrCpy \$BridgeLaunchTarget "\$launchLink"[\s\S]*Function StartMenuQrBridge[\s\S]*\$BridgeLaunchTarget/,
     );
-    expect(installerScript).not.toContain("${isUpdated}");
     expect(installerScript).not.toContain("${StdUtils.");
     expect(installerScript).toContain("MenüQR Bridge mit Windows starten");
     expect(installerScript).toContain("--bridge-autostart");
     expect(installerScript).toContain("WriteRegStr HKCU");
     expect(installerScript).toContain("Lokale MenüQR Bridge-Einstellungen");
     expect(installerScript).toContain("DeleteRegValue HKCU");
+    expect(installerScript).toMatch(
+      /!macro customUnInstall[\s\S]*\$\{IfNot\} \$\{isUpdated\}[\s\S]*DeleteRegValue HKCU[\s\S]*MessageBox[\s\S]*RMDir \/r "\$APPDATA[\s\S]*RMDir \/r "\$LOCALAPPDATA[\s\S]*\$\{EndIf\}[\s\S]*!macroend/,
+    );
   });
 
   it("force-stops every Bridge image before replacing files without elevation", () => {
