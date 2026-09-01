@@ -14,6 +14,7 @@ $applicationData = Join-Path $env:APPDATA $productName
 $localApplicationData = Join-Path $env:LOCALAPPDATA $productName
 $sentinel = Join-Path $applicationData "runtime\upgrade-preservation-sentinel.txt"
 $runKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run"
+$installKey = "HKCU:\Software\fa999f8c-0eb7-5ae9-82c1-d723c3d6e5fa"
 $uninstallKey = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\fa999f8c-0eb7-5ae9-82c1-d723c3d6e5fa"
 $runSentinel = '"C:\MenuQrUpgradeSentinel.exe" --preserve-me'
 
@@ -47,19 +48,7 @@ try {
   if ($installedVersion -ne $expectedVersion) {
     throw "Expected installed version $expectedVersion, received $installedVersion."
   }
-  $actualInstallDirectory = $installedRegistration.InstallLocation
-  Write-Output "Installed Bridge path: $actualInstallDirectory"
-  if ($actualInstallDirectory -and (Test-Path $actualInstallDirectory)) {
-    Get-ChildItem -Path $actualInstallDirectory -Force |
-      Select-Object -ExpandProperty FullName |
-      Write-Output
-    $resourcesDirectory = Join-Path $actualInstallDirectory "resources"
-    if (Test-Path $resourcesDirectory) {
-      Get-ChildItem -Path $resourcesDirectory -Force |
-        Select-Object -ExpandProperty FullName |
-        Write-Output
-    }
-  }
+  $actualInstallDirectory = (Get-ItemProperty -Path $installKey).InstallLocation
   if (
     -not $actualInstallDirectory -or
     -not (Test-Path (Join-Path $actualInstallDirectory "resources\app.asar"))
@@ -70,14 +59,15 @@ try {
 }
 finally {
   & "$env:SystemRoot\System32\taskkill.exe" /F /IM "$productName.exe" 2>$null | Out-Null
-  if (-not $actualInstallDirectory -and (Test-Path $uninstallKey)) {
-    $actualInstallDirectory = (Get-ItemProperty -Path $uninstallKey).InstallLocation
+  if (-not $actualInstallDirectory -and (Test-Path $installKey)) {
+    $actualInstallDirectory = (Get-ItemProperty -Path $installKey).InstallLocation
   }
   if ($actualInstallDirectory) {
     Remove-Item -Path $actualInstallDirectory -Recurse -Force -ErrorAction SilentlyContinue
   }
   Remove-Item -Path $applicationData -Recurse -Force -ErrorAction SilentlyContinue
   Remove-Item -Path $localApplicationData -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item -Path $installKey -Recurse -Force -ErrorAction SilentlyContinue
   Remove-Item -Path $uninstallKey -Recurse -Force -ErrorAction SilentlyContinue
   Remove-ItemProperty -Path $runKey -Name $productName -Force -ErrorAction SilentlyContinue
   Remove-Item -Path $legacyInstaller -Force -ErrorAction SilentlyContinue
