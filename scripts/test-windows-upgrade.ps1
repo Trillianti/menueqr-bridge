@@ -58,7 +58,11 @@ try {
   Write-Output "Verified Bridge $legacyVersion -> $expectedVersion update with preserved userData and autostart."
 }
 finally {
-  & "$env:SystemRoot\System32\taskkill.exe" /F /IM "$productName.exe" 2>$null | Out-Null
+  Start-Process `
+    -FilePath "$env:SystemRoot\System32\taskkill.exe" `
+    -ArgumentList @("/F", "/IM", "$productName.exe") `
+    -Wait `
+    -NoNewWindow | Out-Null
   if (-not $actualInstallDirectory -and (Test-Path $installKey)) {
     $actualInstallDirectory = (Get-ItemProperty -Path $installKey).InstallLocation
   }
