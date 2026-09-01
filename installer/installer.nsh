@@ -21,7 +21,7 @@ Function PrepareMenuQrBridgeUpdate
   # application files and its uninstall registration. Electron userData lives
   # outside $INSTDIR and must never be touched here.
   ${If} ${FileExists} "$INSTDIR\${PRODUCT_FILENAME}.exe"
-    DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
+    DeleteRegKey SHELL_CONTEXT "Software\Microsoft\Windows\CurrentVersion\Uninstall\${UNINSTALL_APP_KEY}"
     RMDir /r "$INSTDIR"
   ${EndIf}
 FunctionEnd

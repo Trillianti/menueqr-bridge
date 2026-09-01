@@ -72,7 +72,7 @@ describe("Windows installer configuration", () => {
       /!macro customInit[\s\S]*\$\{If\} \$\{isUpdated\}[\s\S]*Call PrepareMenuQrBridgeUpdate[\s\S]*\$\{EndIf\}[\s\S]*!macroend/,
     );
     expect(installerScript).toMatch(
-      /Function PrepareMenuQrBridgeUpdate[\s\S]*FileExists[^\r\n]*\$INSTDIR[\s\S]*DeleteRegKey SHELL_CONTEXT "\$\{UNINSTALL_REGISTRY_KEY\}"[\s\S]*RMDir \/r "\$INSTDIR"[\s\S]*FunctionEnd/,
+      /Function PrepareMenuQrBridgeUpdate[\s\S]*FileExists[^\r\n]*\$INSTDIR[\s\S]*DeleteRegKey SHELL_CONTEXT "Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\\$\{UNINSTALL_APP_KEY\}"[\s\S]*RMDir \/r "\$INSTDIR"[\s\S]*FunctionEnd/,
     );
     const updatePreparation = installerScript.slice(
       installerScript.indexOf("Function PrepareMenuQrBridgeUpdate"),
