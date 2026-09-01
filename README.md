@@ -19,7 +19,9 @@ a printer to the public internet.
 - Durable job leasing, bounded retries, local deduplication, and explicit
   acknowledgements.
 - Star TSP1000 LAN discovery, connection health, test printing, Star Line and
-  ESC/POS command modes, 80/82 mm layouts, and German kitchen bons.
+  ESC/POS command modes, plus a Windows print-queue path for printers that
+  require their installed Windows driver.
+- 80/82 mm layouts and German kitchen bons for both print paths.
 - Redacted diagnostics and optional automatic updates from the public MenüQR
   update CDN.
 
@@ -32,7 +34,7 @@ produce tax, VAT, payment, or legally fiscalised receipts.
 MenüQR cloud
   ← outbound HTTPS pairing, heartbeat and long polling
 MenüQR Bridge on the restaurant computer
-  → private-LAN TCP connection
+  → private-LAN TCP connection, or the selected Windows print queue
 Kitchen printer
 ```
 
