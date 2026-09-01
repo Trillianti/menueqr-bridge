@@ -59,6 +59,7 @@ type PairingSnapshot =
       kind:
         | "denied"
         | "expired"
+        | "revoked"
         | "network_error"
         | "secure_storage_unavailable"
         | "secure_storage_corrupt";
@@ -682,6 +683,8 @@ function runtimeLabel(kind: string): string {
     update_required: "Aktualisierung nötig",
     revoked: "Zugriff getrennt",
     fatal_error: "Aufmerksamkeit erforderlich",
+    fatal_configuration_error: "Einrichtung prüfen",
+    authentication_error: "Anmeldung prüfen",
     unpaired: "Noch nicht verbunden",
   };
   return labels[kind] ?? "Status wird geprüft";
@@ -794,6 +797,7 @@ function renderDevelopmentDiagnostics(): void {
   const pairingError =
     pairing?.kind === "denied" ||
     pairing?.kind === "expired" ||
+    pairing?.kind === "revoked" ||
     pairing?.kind === "network_error" ||
     pairing?.kind === "secure_storage_unavailable" ||
     pairing?.kind === "secure_storage_corrupt"
@@ -938,6 +942,7 @@ function renderPairing(): void {
   if (
     pairing?.kind === "denied" ||
     pairing?.kind === "expired" ||
+    pairing?.kind === "revoked" ||
     pairing?.kind === "network_error" ||
     pairing?.kind === "secure_storage_unavailable" ||
     pairing?.kind === "secure_storage_corrupt"
@@ -946,6 +951,8 @@ function renderPairing(): void {
       denied: "Dieses Gerät wurde im Browser nicht bestätigt.",
       expired:
         "Der Bestätigungscode ist abgelaufen. Starten Sie die Verbindung erneut.",
+      revoked:
+        "Dieses Gerät wurde in MenüQR getrennt. Verbinden Sie es erneut, wenn es wieder Bestellungen empfangen soll.",
       network_error:
         "MenüQR ist gerade nicht erreichbar. Prüfen Sie die Internetverbindung und versuchen Sie es erneut.",
       secure_storage_unavailable:
@@ -1344,6 +1351,15 @@ void refreshShell().catch(() => {
     "Windows-Einstellungen sind gerade nicht verfügbar.";
 });
 void refreshPairing().catch(showPairingUnavailable);
+const removePairingStateListener = window.menuqrBridge.onPairingStateChanged(
+  () => {
+    void refreshPairing().catch(showPairingUnavailable);
+    void refreshDeviceRuntime().catch(() => undefined);
+  },
+);
+window.addEventListener("beforeunload", removePairingStateListener, {
+  once: true,
+});
 void refreshDeviceRuntime().catch(() => {
   runtimeElement.textContent = "Bridge-Status ist gerade nicht verfügbar.";
 });

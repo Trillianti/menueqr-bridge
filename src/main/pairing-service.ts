@@ -152,7 +152,10 @@ export class DesktopPairingService {
 
   async clearRevokedCredential(): Promise<void> {
     this.stopPolling();
-    this.setState({ kind: "unpaired" });
+    this.setState({
+      kind: "revoked",
+      message: "This device was disconnected in MenüQR.",
+    });
     await this.store.clear();
   }
 

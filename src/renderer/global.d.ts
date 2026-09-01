@@ -39,6 +39,7 @@ type BridgePairingState =
       kind:
         | "denied"
         | "expired"
+        | "revoked"
         | "network_error"
         | "secure_storage_unavailable"
         | "secure_storage_corrupt";
@@ -137,6 +138,7 @@ declare global {
       setAutostart(enabled: boolean): Promise<BridgeShellSnapshot>;
       setPaused(paused: boolean): Promise<BridgeShellSnapshot>;
       getPairingSnapshot(): Promise<BridgePairingState>;
+      onPairingStateChanged(listener: () => void): () => void;
       beginPairing(): Promise<BridgePairingState>;
       openPairingBrowser(): Promise<void>;
       disconnect(): Promise<{

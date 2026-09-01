@@ -75,7 +75,10 @@ describe("architecture boundaries", () => {
   it("uses one explicit, typed IPC namespace", () => {
     const preload = source(join(sourceRoot, "preload/index.ts"));
     expect(preload).toContain('exposeInMainWorld("menuqrBridge"');
-    expect(preload).not.toMatch(/ipcRenderer\.(?:send|on)\(/);
+    expect(preload).not.toMatch(/ipcRenderer\.send\(/);
+    expect(preload).toContain(
+      "ipcRenderer.on(pairingStateChangedChannel, wrapped)",
+    );
   });
 
   it("keeps tray and autostart control in the privileged main process", () => {

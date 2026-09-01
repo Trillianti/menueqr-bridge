@@ -5,6 +5,7 @@ export const BRIDGE_FOUNDATION_CHANNELS = {
   setAutostart: "bridge:shell:set-autostart",
   setPaused: "bridge:shell:set-paused",
   getPairingSnapshot: "bridge:pairing:get-snapshot",
+  pairingStateChanged: "bridge:pairing:state-changed",
   beginPairing: "bridge:pairing:begin",
   openPairingBrowser: "bridge:pairing:open-browser",
   disconnect: "bridge:pairing:disconnect",

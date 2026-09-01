@@ -21,6 +21,7 @@ export type PairingState =
       credential: Exclude<RedactedCredentialState, { kind: "unpaired" }>;
     }
   | { kind: "denied"; message: string }
+  | { kind: "revoked"; message: string }
   | { kind: "expired"; message: string }
   | { kind: "network_error"; message: string }
   | { kind: "secure_storage_unavailable"; message: string }
@@ -73,6 +74,7 @@ export function isPairingTerminal(state: PairingState): boolean {
     "paired",
     "denied",
     "expired",
+    "revoked",
     "secure_storage_unavailable",
     "secure_storage_corrupt",
   ].includes(state.kind);

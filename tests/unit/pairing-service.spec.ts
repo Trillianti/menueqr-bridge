@@ -145,7 +145,7 @@ describe("desktop pairing service", () => {
 
     expect(store.clear).toHaveBeenCalledTimes(1);
     expect(api.revokeCurrentDevice).not.toHaveBeenCalled();
-    expect(service.snapshot()).toEqual({ kind: "unpaired" });
+    expect(service.snapshot()).toMatchObject({ kind: "revoked" });
   });
 
   it("stops presenting the restaurant immediately even if credential cleanup fails", async () => {
@@ -155,7 +155,7 @@ describe("desktop pairing service", () => {
     await expect(service.clearRevokedCredential()).rejects.toThrow(
       "storage locked",
     );
-    expect(service.snapshot()).toEqual({ kind: "unpaired" });
+    expect(service.snapshot()).toMatchObject({ kind: "revoked" });
   });
 
   it("sends a printer support request only through the paired credential", async () => {

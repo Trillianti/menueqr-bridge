@@ -7,6 +7,7 @@ const showSettingsChannel = "bridge:shell:show-settings" as const;
 const setAutostartChannel = "bridge:shell:set-autostart" as const;
 const setPausedChannel = "bridge:shell:set-paused" as const;
 const getPairingSnapshotChannel = "bridge:pairing:get-snapshot" as const;
+const pairingStateChangedChannel = "bridge:pairing:state-changed" as const;
 const beginPairingChannel = "bridge:pairing:begin" as const;
 const openPairingBrowserChannel = "bridge:pairing:open-browser" as const;
 const disconnectChannel = "bridge:pairing:disconnect" as const;
@@ -45,6 +46,11 @@ const bridgeFoundation = Object.freeze({
     ipcRenderer.invoke(setAutostartChannel, enabled),
   setPaused: (paused: boolean) => ipcRenderer.invoke(setPausedChannel, paused),
   getPairingSnapshot: () => ipcRenderer.invoke(getPairingSnapshotChannel),
+  onPairingStateChanged: (listener: () => void) => {
+    const wrapped = () => listener();
+    ipcRenderer.on(pairingStateChangedChannel, wrapped);
+    return () => ipcRenderer.removeListener(pairingStateChangedChannel, wrapped);
+  },
   beginPairing: () => ipcRenderer.invoke(beginPairingChannel),
   openPairingBrowser: () => ipcRenderer.invoke(openPairingBrowserChannel),
   disconnect: () => ipcRenderer.invoke(disconnectChannel),

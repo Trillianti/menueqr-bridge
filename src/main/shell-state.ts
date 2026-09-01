@@ -20,3 +20,10 @@ export function isInstallerOrUpdaterLaunch(argv: readonly string[]): boolean {
     ),
   );
 }
+
+export function shouldShowSettingsOnLaunch(argv: readonly string[]): boolean {
+  if (argv.includes("--updated")) return true;
+  return !argv.some((argument) =>
+    ["--bridge-autostart", "--updating", "--uninstall"].includes(argument),
+  );
+}

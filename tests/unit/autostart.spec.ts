@@ -2,6 +2,7 @@ import { AutostartAdapter } from "../../src/main/autostart";
 import {
   createShellSnapshot,
   isInstallerOrUpdaterLaunch,
+  shouldShowSettingsOnLaunch,
 } from "../../src/main/shell-state";
 
 describe("Windows shell policy", () => {
@@ -33,5 +34,16 @@ describe("Windows shell policy", () => {
     });
     expect(isInstallerOrUpdaterLaunch(["--updated"])).toBe(true);
     expect(isInstallerOrUpdaterLaunch(["--bridge-autostart"])).toBe(false);
+  });
+
+  it("opens after updates and normal launches but stays hidden for background starts", () => {
+    expect(shouldShowSettingsOnLaunch(["--updated"])).toBe(true);
+    expect(
+      shouldShowSettingsOnLaunch(["--bridge-autostart", "--updated"]),
+    ).toBe(true);
+    expect(shouldShowSettingsOnLaunch([])).toBe(true);
+    expect(shouldShowSettingsOnLaunch(["--bridge-autostart"])).toBe(false);
+    expect(shouldShowSettingsOnLaunch(["--updating"])).toBe(false);
+    expect(shouldShowSettingsOnLaunch(["--uninstall"])).toBe(false);
   });
 });

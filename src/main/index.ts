@@ -38,7 +38,7 @@ import { BridgeUpdateService } from "./update-service";
 import { PowerShellWindowsPrinterSpooler } from "./windows-printer-spooler";
 import {
   createShellSnapshot,
-  isInstallerOrUpdaterLaunch,
+  shouldShowSettingsOnLaunch,
   type ShellRuntimeKind,
 } from "./shell-state";
 
@@ -637,6 +637,8 @@ function trayRuntimeLabel(): string {
     update_required: "Aktualisierung nötig",
     revoked: "getrennt",
     fatal_error: "Aufmerksamkeit erforderlich",
+    fatal_configuration_error: "Einrichtung prüfen",
+    authentication_error: "Anmeldung prüfen",
   };
   return labels[state ?? "stopped"] ?? "Status wird geprüft";
 }
@@ -727,7 +729,19 @@ if (!app.requestSingleInstanceLock()) {
         appVersion: app.getVersion(),
         heartbeatFallbackSeconds: 5,
         onRevoked: async () => {
-          await pairing?.clearRevokedCredential();
+          try {
+            await pairing?.clearRevokedCredential();
+          } finally {
+            if (process.platform === "win32" && Notification.isSupported()) {
+              const notification = new Notification({
+                title: "MenüQR Bridge wurde getrennt",
+                body: "Dieses Windows-Gerät ist nicht mehr mit einem Restaurant verbunden.",
+              });
+              notification.on("click", showSettings);
+              notification.show();
+            }
+            showSettings();
+          }
         },
         log: (event) => logs.append(event),
       },
@@ -781,8 +795,14 @@ if (!app.requestSingleInstanceLock()) {
         onCredentialSaved: async (credential) => {
           await runtime.start(credential);
         },
-        onStateChange: (state) =>
-          logs.append({ event: "pairing.state", state: state.kind }),
+        onStateChange: (state) => {
+          if (settingsWindow && !settingsWindow.isDestroyed()) {
+            settingsWindow.webContents.send(
+              BRIDGE_FOUNDATION_CHANNELS.pairingStateChanged,
+            );
+          }
+          return logs.append({ event: "pairing.state", state: state.kind });
+        },
       },
     );
     void pairing.restore();
@@ -805,8 +825,7 @@ if (!app.requestSingleInstanceLock()) {
     );
     settingsWindow = createSettingsWindow();
     tray = createTray(autostart);
-    if (isDevelopment() && !isInstallerOrUpdaterLaunch(process.argv))
-      showSettings();
+    if (shouldShowSettingsOnLaunch(process.argv)) showSettings();
     app.on("activate", showSettings);
   });
 }
