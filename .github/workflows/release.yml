@@ -80,6 +80,10 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: npm run package:win:update
 
+      - name: Verify update preserves local Bridge data
+        shell: pwsh
+        run: ./scripts/test-windows-upgrade.ps1
+
       - name: Write installer checksum
         shell: pwsh
         run: |

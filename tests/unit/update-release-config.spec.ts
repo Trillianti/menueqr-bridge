@@ -31,6 +31,10 @@ describe("Windows update release configuration", () => {
     join(packageRoot, "electron-builder.yml"),
     "utf8",
   );
+  const upgradeSmoke = readFileSync(
+    join(packageRoot, "scripts", "test-windows-upgrade.ps1"),
+    "utf8",
+  );
 
   it("generates stable GitHub update metadata without requiring elevation", () => {
     expect(releaseConfig).toContain("extends: ./electron-builder.yml");
@@ -62,6 +66,7 @@ describe("Windows update release configuration", () => {
     expect(releaseWorkflow).toContain("types: [published]");
     expect(releaseWorkflow).toContain("resolve-release-intent.mjs");
     expect(releaseWorkflow).toContain("npm run package:win:update");
+    expect(releaseWorkflow).toContain("./scripts/test-windows-upgrade.ps1");
     expect(releaseWorkflow).toContain('$_.Name -eq "latest.yml"');
     expect(releaseWorkflow).toContain('$_.Name -like "*-Setup.exe.blockmap"');
     expect(releaseWorkflow).not.toContain("npm run publish:updates");
@@ -76,5 +81,8 @@ describe("Windows update release configuration", () => {
     );
     expect(publisher).toContain("Refusing to overwrite immutable update artifact");
     expect(publisher).toContain("Refusing to downgrade update channel");
+    expect(upgradeSmoke).toContain("upgrade-preservation-sentinel.txt");
+    expect(upgradeSmoke).toContain("--updated");
+    expect(upgradeSmoke).toContain("preserved userData and autostart");
   });
 });
