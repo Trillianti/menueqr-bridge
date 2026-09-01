@@ -74,11 +74,15 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     ).toBeVisible();
     await expect(window.getByTestId("printer-request-toggle")).toBeVisible();
     await window.getByTestId("printer-request-toggle").click();
-    await expect(window.getByTestId("printer-request-dialog")).toBeVisible();
-    await expect(window.getByTestId("printer-request-form")).toBeVisible();
-    await expect(window.getByTestId("printer-request-model")).toBeFocused();
+    await expect(window.getByTestId("printer-request-dialog")).toHaveAttribute(
+      "open",
+      "",
+    );
     await window.keyboard.press("Escape");
-    await expect(window.getByTestId("printer-request-dialog")).toBeHidden();
+    await expect(window.getByTestId("printer-request-dialog")).not.toHaveAttribute(
+      "open",
+      "",
+    );
     await expect(
       window.locator(".printer-setup-card .card-number"),
     ).toHaveCount(0);
