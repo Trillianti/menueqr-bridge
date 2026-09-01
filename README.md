@@ -123,6 +123,11 @@ files. Its data-removal prompt, autostart removal, and user-data deletion are
 strictly disabled for that update path and remain available only during an
 explicit manual uninstall.
 
+For migration from legacy installers that did not honor the update flag, the
+new installer bypasses the old uninstaller during an in-app update and removes
+only the previous installation directory and uninstall registration. User data
+and autostart remain outside that operation.
+
 After approval, the release workflow will submit its GitHub-hosted build to
 SignPath with origin verification before publishing it. The governing policy is
 [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).

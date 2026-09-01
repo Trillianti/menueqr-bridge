@@ -66,4 +66,20 @@ describe("Windows installer configuration", () => {
     expect(builderConfig).toContain("allowElevation: false");
     expect(builderConfig).toContain("deleteAppDataOnUninstall: false");
   });
+
+  it("bypasses legacy uninstallers only for updates without touching user data", () => {
+    expect(installerScript).toMatch(
+      /!macro customInit[\s\S]*\$\{If\} \$\{isUpdated\}[\s\S]*Call PrepareMenuQrBridgeUpdate[\s\S]*\$\{EndIf\}[\s\S]*!macroend/,
+    );
+    expect(installerScript).toMatch(
+      /Function PrepareMenuQrBridgeUpdate[\s\S]*FileExists[^\r\n]*\$INSTDIR[\s\S]*DeleteRegKey SHELL_CONTEXT "\$\{UNINSTALL_REGISTRY_KEY\}"[\s\S]*RMDir \/r "\$INSTDIR"[\s\S]*FunctionEnd/,
+    );
+    const updatePreparation = installerScript.slice(
+      installerScript.indexOf("Function PrepareMenuQrBridgeUpdate"),
+      installerScript.indexOf("FunctionEnd", installerScript.indexOf("Function PrepareMenuQrBridgeUpdate")) + "FunctionEnd".length,
+    );
+    expect(updatePreparation).not.toContain("$APPDATA");
+    expect(updatePreparation).not.toContain("$LOCALAPPDATA");
+    expect(updatePreparation).not.toContain("CurrentVersion\\Run");
+  });
 });

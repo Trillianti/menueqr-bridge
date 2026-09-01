@@ -9,7 +9,22 @@
 
 !macro customInit
   Call StopRunningMenuQrBridge
+  ${If} ${isUpdated}
+    Call PrepareMenuQrBridgeUpdate
+  ${EndIf}
 !macroend
+
+Function PrepareMenuQrBridgeUpdate
+  # Releases before 0.1.11 contained a custom uninstall prompt that ignored
+  # electron-builder's KEEP_APP_DATA update flag. For an in-app update, bypass
+  # that legacy uninstaller after processes are stopped: remove only installed
+  # application files and its uninstall registration. Electron userData lives
+  # outside $INSTDIR and must never be touched here.
+  ${If} ${FileExists} "$INSTDIR\${PRODUCT_FILENAME}.exe"
+    DeleteRegKey SHELL_CONTEXT "${UNINSTALL_REGISTRY_KEY}"
+    RMDir /r "$INSTDIR"
+  ${EndIf}
+FunctionEnd
 
 Function StopRunningMenuQrBridge
   # Every Electron main/renderer/GPU process uses the exact application image
