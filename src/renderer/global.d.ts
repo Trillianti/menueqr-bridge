@@ -108,14 +108,19 @@ type BridgeIntegrationSnapshot = {
 };
 
 type BridgeUpdateSnapshot =
-  | { kind: "disabled" | "idle" | "checking" | "error"; currentVersion: string }
+  | { kind: "disabled" | "idle" | "checking"; currentVersion: string }
   | {
       kind: "downloading";
       currentVersion: string;
       version: string;
       percent: number;
     }
-  | { kind: "downloaded"; currentVersion: string; version: string };
+  | {
+      kind: "downloaded" | "installing";
+      currentVersion: string;
+      version: string;
+    }
+  | { kind: "error"; currentVersion: string; code: string };
 
 type BridgeDevelopmentSnapshot = {
   enabled: boolean;

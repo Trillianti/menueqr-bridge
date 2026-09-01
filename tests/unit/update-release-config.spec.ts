@@ -23,22 +23,47 @@ describe("Windows update release configuration", () => {
     join(packageRoot, "scripts", "publish-updates.mjs"),
     "utf8",
   );
+  const mainProcess = readFileSync(
+    join(packageRoot, "src", "main", "index.ts"),
+    "utf8",
+  );
+  const installerConfig = readFileSync(
+    join(packageRoot, "electron-builder.yml"),
+    "utf8",
+  );
 
-  it("generates generic update metadata while signing approval is pending", () => {
+  it("generates stable GitHub update metadata without requiring elevation", () => {
     expect(releaseConfig).toContain("extends: ./electron-builder.yml");
     expect(releaseConfig).toContain("forceCodeSigning: false");
-    expect(releaseConfig).toContain("provider: generic");
-    expect(releaseConfig).toContain("${env.MENUEQR_BRIDGE_UPDATE_PUBLIC_URL}");
+    expect(releaseConfig).toContain("provider: github");
+    expect(releaseConfig).toContain("owner: Trillianti");
+    expect(releaseConfig).toContain("repo: menueqr-bridge");
     expect(packageJson.scripts["package:win:update"]).toContain(
-      "--publish always",
+      "--publish never",
     );
+  });
+
+  it("shuts down printing before a per-user update and preserves user data", () => {
+    const installHandler = mainProcess.slice(
+      mainProcess.indexOf("BRIDGE_FOUNDATION_CHANNELS.installUpdate"),
+      mainProcess.indexOf("function validateDiscoveredPrinterConfirmation"),
+    );
+    expect(installHandler.indexOf("await runtime.shutdown()"))
+      .toBeGreaterThan(-1);
+    expect(installHandler.indexOf("await runtime.shutdown()"))
+      .toBeLessThan(installHandler.indexOf("updates.install()"));
+    expect(installerConfig).toContain("perMachine: false");
+    expect(installerConfig).toContain("allowElevation: false");
+    expect(installerConfig).toContain("deleteAppDataOnUninstall: false");
   });
 
   it("keeps CI separate from the protected automatic release pipeline", () => {
     expect(workflow).not.toContain("publish-windows-update:");
     expect(releaseWorkflow).toContain("types: [published]");
     expect(releaseWorkflow).toContain("resolve-release-intent.mjs");
-    expect(releaseWorkflow).toContain("npm run package:win");
+    expect(releaseWorkflow).toContain("npm run package:win:update");
+    expect(releaseWorkflow).toContain('$_.Name -eq "latest.yml"');
+    expect(releaseWorkflow).toContain('$_.Name -like "*-Setup.exe.blockmap"');
     expect(releaseWorkflow).not.toContain("npm run publish:updates");
     expect(releaseWorkflow).toContain("gh release upload");
     expect(publisher).toContain('"latest.yml"');

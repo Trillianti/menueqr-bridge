@@ -22,8 +22,8 @@ a printer to the public internet.
   ESC/POS command modes, plus a Windows print-queue path for printers that
   require their installed Windows driver.
 - 80/82 mm layouts and German kitchen bons for both print paths.
-- Redacted diagnostics and optional automatic updates from the public MenüQR
-  update CDN.
+- Redacted diagnostics and user-controlled automatic updates from the official
+  stable GitHub Releases channel.
 - A user-triggered full diagnostic-log export with bounded local retention and
   one-way fingerprints instead of restaurant, job, device, printer, or network
   identifiers.
@@ -103,8 +103,15 @@ GitHub-hosted Windows runners. The first public release is intentionally
 unsigned while the project applies for free open-source code signing through
 SignPath Foundation. Windows may show a SmartScreen warning for unsigned builds.
 
-Unsigned open-source releases are published only to GitHub Releases and are not
-sent to the production automatic-update CDN.
+Unsigned open-source releases and their hash-verified update metadata are
+published only to the official GitHub Releases channel. Bridge checks that
+stable channel from the settings screen, downloads an available update, and
+installs it only after the restaurant confirms the restart.
+
+Bridge installs and updates per Windows user. It does not request permanent
+administrator privileges. Updates replace application files only; pairing,
+encrypted credentials, printer profiles, the deduplication ledger, and bounded
+diagnostics remain in Electron's stable user-data directory.
 
 After approval, the release workflow will submit its GitHub-hosted build to
 SignPath with origin verification before publishing it. The governing policy is

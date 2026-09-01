@@ -8,11 +8,14 @@ export type BridgeUpdateSnapshot =
   | { kind: "checking"; currentVersion: string }
   | { kind: "downloading"; currentVersion: string; version: string; percent: number }
   | { kind: "downloaded"; currentVersion: string; version: string }
-  | { kind: "error"; currentVersion: string };
+  | { kind: "installing"; currentVersion: string; version: string }
+  | { kind: "error"; currentVersion: string; code: string };
 
 export type UpdateClient = {
   autoDownload: boolean;
   autoInstallOnAppQuit: boolean;
+  allowPrerelease: boolean;
+  allowDowngrade: boolean;
   on(
     event:
       | "checking-for-update"
@@ -39,6 +42,7 @@ export class BridgeUpdateService {
   private snapshotState: BridgeUpdateSnapshot;
   private started = false;
   private checkTimer: ReturnType<typeof setInterval> | null = null;
+  private lastLoggedProgress = -10;
 
   constructor(
     private readonly updater: UpdateClient,
@@ -57,13 +61,15 @@ export class BridgeUpdateService {
     if (this.started || !this.options.enabled) return;
     this.started = true;
     this.updater.autoDownload = true;
+    this.updater.allowPrerelease = false;
+    this.updater.allowDowngrade = false;
     // The operator chooses when to restart. A kitchen-service process must not
     // silently install an update while staff are working.
     this.updater.autoInstallOnAppQuit = false;
     this.registerEvents();
-    void this.check();
+    void this.check("automatic");
     this.checkTimer = setInterval(
-      () => void this.check(),
+      () => void this.check("automatic"),
       this.options.checkIntervalMs ?? 6 * 60 * 60 * 1_000,
     );
     this.checkTimer.unref?.();
@@ -74,7 +80,9 @@ export class BridgeUpdateService {
     this.checkTimer = null;
   }
 
-  async check(): Promise<BridgeUpdateSnapshot> {
+  async check(
+    source: "manual" | "automatic" = "manual",
+  ): Promise<BridgeUpdateSnapshot> {
     if (!this.options.enabled) return this.snapshot();
     if (
       this.snapshotState.kind === "checking" ||
@@ -87,13 +95,14 @@ export class BridgeUpdateService {
       kind: "checking",
       currentVersion: this.options.currentVersion,
     };
-    await this.emit("update.checking");
+    await this.emit("update.checking", undefined, source);
     try {
       await this.updater.checkForUpdates();
     } catch {
       this.snapshotState = {
         kind: "error",
         currentVersion: this.options.currentVersion,
+        code: "CHECK_FAILED",
       };
       await this.emit("update.check_failed", "CHECK_FAILED");
     }
@@ -102,9 +111,27 @@ export class BridgeUpdateService {
 
   install(): boolean {
     if (this.snapshotState.kind !== "downloaded") return false;
+    const version = this.snapshotState.version;
+    this.snapshotState = {
+      kind: "installing",
+      currentVersion: this.options.currentVersion,
+      version,
+    };
     void this.emit("update.install_requested", "DOWNLOADED");
-    this.updater.quitAndInstall(false, true);
-    return true;
+    try {
+      // The app is a per-user NSIS installation. A silent updater restart does
+      // not request elevation and does not touch Electron's userData directory.
+      this.updater.quitAndInstall(true, true);
+      return true;
+    } catch {
+      this.snapshotState = {
+        kind: "error",
+        currentVersion: this.options.currentVersion,
+        code: "INSTALL_LAUNCH_FAILED",
+      };
+      void this.emit("update.install_failed", "INSTALL_LAUNCH_FAILED");
+      return false;
+    }
   }
 
   private registerEvents(): void {
@@ -129,15 +156,25 @@ export class BridgeUpdateService {
         version,
         percent: 0,
       };
+      this.lastLoggedProgress = -10;
       void this.emit("update.available", "AVAILABLE", version);
     });
     this.updater.on("download-progress", (progress: unknown) => {
       const previous = this.snapshotState;
       if (previous.kind !== "downloading") return;
+      const percent = boundedPercent((progress as ProgressInfo).percent);
       this.snapshotState = {
         ...previous,
-        percent: boundedPercent((progress as ProgressInfo).percent),
+        percent,
       };
+      if (percent >= this.lastLoggedProgress + 10 || percent === 100) {
+        this.lastLoggedProgress = Math.floor(percent / 10) * 10;
+        void this.options.onEvent?.({
+          event: "update.download_progress",
+          state: "downloading",
+          details: { percent },
+        });
+      }
     });
     this.updater.on("update-downloaded", (info: unknown) => {
       const version = updateVersion(info) ?? this.options.currentVersion;
@@ -155,6 +192,7 @@ export class BridgeUpdateService {
       this.snapshotState = {
         kind: "error",
         currentVersion: this.options.currentVersion,
+        code: "UPDATER_ERROR",
       };
       void this.emit("update.error", "UPDATER_ERROR");
     });

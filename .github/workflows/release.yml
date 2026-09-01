@@ -78,7 +78,7 @@ jobs:
       - name: Build unsigned NSIS installer
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
-        run: npm run package:win
+        run: npm run package:win:update
 
       - name: Write installer checksum
         shell: pwsh
@@ -100,9 +100,11 @@ jobs:
 
           $assets = Get-ChildItem release -File | Where-Object {
             $_.Name -eq "SHA256SUMS.txt" -or
-            $_.Name -like "*-Setup.exe"
+            $_.Name -eq "latest.yml" -or
+            $_.Name -like "*-Setup.exe" -or
+            $_.Name -like "*-Setup.exe.blockmap"
           }
-          if ($assets.Count -ne 2) { throw "Expected the installer and checksum." }
+          if ($assets.Count -ne 4) { throw "Expected installer, blockmap, latest.yml, and checksum." }
 
           $existing = gh release view $env:BRIDGE_RELEASE_TAG --repo $env:GITHUB_REPOSITORY --json assets | ConvertFrom-Json
           $duplicates = $assets | Where-Object { $existing.assets.name -contains $_.Name }
@@ -118,6 +120,8 @@ jobs:
           name: menueqr-bridge-update-${{ needs.release-intent.outputs.version }}-${{ github.sha }}
           path: |
             release/*-Setup.exe
+            release/*-Setup.exe.blockmap
+            release/latest.yml
             release/SHA256SUMS.txt
           if-no-files-found: error
           retention-days: 90

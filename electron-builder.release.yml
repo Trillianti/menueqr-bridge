@@ -1,5 +1,7 @@
 extends: ./electron-builder.yml
 forceCodeSigning: false
 publish:
-  provider: generic
-  url: ${env.MENUEQR_BRIDGE_UPDATE_PUBLIC_URL}
+  provider: github
+  owner: Trillianti
+  repo: menueqr-bridge
+  releaseType: release

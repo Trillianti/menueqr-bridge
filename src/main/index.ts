@@ -527,9 +527,35 @@ function registerIpc(
     assertSettingsSender(event.sender.id);
     return updates.check();
   });
-  ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.installUpdate, (event) => {
+  ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.installUpdate, async (event) => {
     assertSettingsSender(event.sender.id);
-    return updates.install();
+    if (updates.snapshot().kind !== "downloaded") return false;
+    await logs.append({
+      event: "update.shutdown_started",
+      state: "stopping_runtime",
+    });
+    await runtime.shutdown();
+    explicitQuitRequested = true;
+    shutdownInProgress = true;
+    try {
+      const started = updates.install();
+      if (!started) {
+        explicitQuitRequested = false;
+        shutdownInProgress = false;
+        await maybeStartRuntime();
+      }
+      return started;
+    } catch {
+      explicitQuitRequested = false;
+      shutdownInProgress = false;
+      await logs.append({
+        event: "update.install_failed",
+        code: "INSTALL_LAUNCH_FAILED",
+        state: "failed",
+      });
+      await maybeStartRuntime();
+      return false;
+    }
   });
 }
 

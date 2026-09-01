@@ -26,7 +26,7 @@
     "test:e2e": "npm run build && playwright test --config playwright.config.ts",
     "virtual-printer": "electron tools/virtual-printer/main.cjs",
     "package:win": "npm run build && electron-builder --win nsis --x64 --publish never",
-    "package:win:update": "npm run build && electron-builder --win nsis --x64 --config electron-builder.release.yml --publish always",
+    "package:win:update": "npm run build && electron-builder --win nsis --x64 --config electron-builder.release.yml --publish never",
     "publish:updates": "node scripts/publish-updates.mjs",
     "verify:published-updates": "node scripts/verify-published-updates.mjs",
     "verify:architecture": "jest --selectProjects unit --runInBand tests/unit/architecture-boundaries.spec.ts"

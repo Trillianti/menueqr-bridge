@@ -105,14 +105,19 @@ type IntegrationSnapshot = {
 };
 
 type UpdateSnapshot =
-  | { kind: "disabled" | "idle" | "checking" | "error"; currentVersion: string }
+  | { kind: "disabled" | "idle" | "checking"; currentVersion: string }
   | {
       kind: "downloading";
       currentVersion: string;
       version: string;
       percent: number;
     }
-  | { kind: "downloaded"; currentVersion: string; version: string };
+  | {
+      kind: "downloaded" | "installing";
+      currentVersion: string;
+      version: string;
+    }
+  | { kind: "error"; currentVersion: string; code: string };
 
 type DevelopmentSnapshot = {
   enabled: boolean;
@@ -738,7 +743,10 @@ function renderUpdate(): void {
   const update = updateSnapshot;
   updateControls.hidden = !update || update.kind === "disabled";
   updateInstallButton.hidden = true;
+  updateInstallButton.disabled = false;
   updateCheckButton.disabled = false;
+  updateCheckButton.textContent = "Nach Updates suchen";
+  updateInstallButton.textContent = "Aktualisieren und neu starten";
   if (!update || update.kind === "disabled") return;
 
   if (update.kind === "idle") {
@@ -748,18 +756,29 @@ function renderUpdate(): void {
   if (update.kind === "checking") {
     updateStatus.textContent = "Neue Version wird gesucht …";
     updateCheckButton.disabled = true;
+    updateCheckButton.textContent = "Wird geprüft …";
     return;
   }
   if (update.kind === "downloading") {
     updateStatus.textContent = `Version ${update.version} wird geladen (${update.percent} %).`;
     updateCheckButton.disabled = true;
+    updateCheckButton.textContent = "Update wird geladen …";
     return;
   }
   if (update.kind === "downloaded") {
-    updateStatus.textContent = `Version ${update.version} ist bereit. Starten Sie Bridge neu, wenn kein Bon gedruckt wird.`;
+    updateStatus.textContent = `Version ${update.version} ist bereit. Beim Neustart bleiben Restaurant, Drucker und lokale Einstellungen erhalten.`;
     updateInstallButton.hidden = false;
     return;
   }
+  if (update.kind === "installing") {
+    updateStatus.textContent = `Version ${update.version} wird installiert. MenüQR Bridge startet anschließend neu.`;
+    updateCheckButton.disabled = true;
+    updateInstallButton.hidden = false;
+    updateInstallButton.disabled = true;
+    updateInstallButton.textContent = "Update wird installiert …";
+    return;
+  }
+  updateInstallButton.disabled = false;
   updateStatus.textContent =
     "Updates konnten gerade nicht geprüft werden. Bitte später erneut versuchen.";
 }
@@ -1800,7 +1819,11 @@ updateCheckButton.addEventListener("click", () => {
     })
     .catch(() => {
       updateSnapshot = updateSnapshot
-        ? { kind: "error", currentVersion: updateSnapshot.currentVersion }
+        ? {
+            kind: "error",
+            currentVersion: updateSnapshot.currentVersion,
+            code: "CHECK_FAILED",
+          }
         : null;
       renderUpdate();
     });
