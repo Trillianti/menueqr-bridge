@@ -56,7 +56,7 @@ describe("Windows installer configuration", () => {
       /!macro customInit[\s\S]*Call StopRunningMenuQrBridge[\s\S]*!macroend/,
     );
     expect(installerScript).toContain(
-      'taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}"',
+      'taskkill.exe" /F /IM "${PRODUCT_FILENAME}.exe"',
     );
     expect(installerScript).toContain("IntCmp $0 5");
     expect(installerScript).not.toMatch(/taskkill[^\r\n]*\s\/T(?:\s|$)/i);

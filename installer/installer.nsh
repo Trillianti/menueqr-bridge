@@ -21,7 +21,7 @@ Function StopRunningMenuQrBridge
   # itself before replacing the application files.
   StrCpy $0 0
   stopBridgeProcesses:
-    nsExec::ExecToStack '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}"'
+    nsExec::ExecToStack '"$SYSDIR\taskkill.exe" /F /IM "${PRODUCT_FILENAME}.exe"'
     Pop $1
     Pop $2
     Sleep 350
