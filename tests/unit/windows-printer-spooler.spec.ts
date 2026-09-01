@@ -25,7 +25,12 @@ describe("Windows printer spooler", () => {
 
   it("passes bon text through stdin and the printer name through the environment", async () => {
     const runner = jest.fn().mockResolvedValue("");
-    const spooler = new PowerShellWindowsPrinterSpooler(runner, "win32");
+    const onEvent = jest.fn();
+    const spooler = new PowerShellWindowsPrinterSpooler(
+      runner,
+      "win32",
+      onEvent,
+    );
     const signal = new AbortController().signal;
     await spooler.printText(
       "Star TSP1000 (TSP 1045) (Hoffest)",
@@ -42,6 +47,18 @@ describe("Windows printer spooler", () => {
         },
         signal,
       },
+    );
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "windows_spooler.print_started",
+        details: expect.objectContaining({ characters: 24, lines: 3 }),
+      }),
+    );
+    expect(onEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event: "windows_spooler.print_completed",
+        code: "WINDOWS_PRINT_JOB_ACCEPTED",
+      }),
     );
   });
 

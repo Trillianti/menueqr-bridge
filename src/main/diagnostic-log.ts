@@ -1,5 +1,8 @@
 import { promises as fs } from "node:fs";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
+
+export type DiagnosticDetail = string | number | boolean | null;
 
 export type DiagnosticLogEvent = {
   event: string;
@@ -8,18 +11,31 @@ export type DiagnosticLogEvent = {
   jobId?: string;
   adapterId?: string;
   state?: string;
+  details?: Record<string, DiagnosticDetail>;
 };
 
 export type DiagnosticLogEntry = DiagnosticLogEvent & { timestamp: string };
 
 export class DiagnosticLog {
+  private appendQueue: Promise<void> = Promise.resolve();
+
   constructor(
     private readonly directory: string,
-    private readonly maxFiles = 5,
-    private readonly maxBytes = 256 * 1024,
+    private readonly maxFiles = 10,
+    private readonly maxBytes = 1024 * 1024,
   ) {}
 
   async append(event: DiagnosticLogEvent): Promise<void> {
+    const write = this.appendQueue
+      .catch(() => undefined)
+      .then(() => this.appendNow(event));
+    // Diagnostics must never crash or stall kitchen printing when the disk is
+    // full, locked, or temporarily unavailable.
+    this.appendQueue = write.catch(() => undefined);
+    return this.appendQueue;
+  }
+
+  private async appendNow(event: DiagnosticLogEvent): Promise<void> {
     const entry = JSON.stringify({
       timestamp: new Date().toISOString(),
       ...sanitizeEvent(event),
@@ -43,6 +59,7 @@ export class DiagnosticLog {
   }
 
   async recent(maxEntries = 80): Promise<DiagnosticLogEntry[]> {
+    await this.appendQueue.catch(() => undefined);
     const files = Array.from({ length: this.maxFiles }, (_, index) =>
       index === 0 ? this.currentPath() : this.rotatedPath(index),
     ).reverse();
@@ -59,7 +76,11 @@ export class DiagnosticLog {
         if ((error as NodeJS.ErrnoException).code !== "ENOENT") continue;
       }
     }
-    return entries.slice(-Math.max(1, Math.min(maxEntries, 200)));
+    return entries.slice(-Math.max(1, Math.min(maxEntries, 10_000)));
+  }
+
+  async all(): Promise<DiagnosticLogEntry[]> {
+    return this.recent(10_000);
   }
 
   path(): string {
@@ -117,7 +138,7 @@ function sanitizeEvent(event: DiagnosticLogEvent): DiagnosticLogEvent {
     ...(event.code ? { code: sanitizeIdentifier(event.code, "UNKNOWN") } : {}),
     ...(event.message ? { message: redactDiagnosticText(event.message) } : {}),
     ...(event.jobId
-      ? { jobId: sanitizeIdentifier(event.jobId, "redacted") }
+      ? { jobId: fingerprintDiagnosticId(event.jobId) }
       : {}),
     ...(event.adapterId
       ? { adapterId: sanitizeIdentifier(event.adapterId, "redacted") }
@@ -125,7 +146,38 @@ function sanitizeEvent(event: DiagnosticLogEvent): DiagnosticLogEvent {
     ...(event.state
       ? { state: sanitizeIdentifier(event.state, "unknown") }
       : {}),
+    ...(event.details ? { details: sanitizeDetails(event.details) } : {}),
   };
+}
+
+function sanitizeDetails(
+  details: Record<string, DiagnosticDetail>,
+): Record<string, DiagnosticDetail> {
+  return Object.fromEntries(
+    Object.entries(details)
+      .slice(0, 32)
+      .map(([key, value]) => {
+        const safeKey = sanitizeIdentifier(key, "detail");
+        if (typeof value !== "string") return [safeKey, value];
+        const safeOperationalValue = [
+          "transport",
+          "jobType",
+          "layout",
+          "phase",
+          "operation",
+        ].includes(safeKey);
+        return [
+          safeKey,
+          safeOperationalValue
+            ? sanitizeIdentifier(value, "unknown")
+            : fingerprintDiagnosticId(value),
+        ];
+      }),
+  );
+}
+
+export function fingerprintDiagnosticId(value: string): string {
+  return `sha256:${createHash("sha256").update(value).digest("hex").slice(0, 16)}`;
 }
 
 function sanitizeIdentifier(value: string, fallback: string): string {

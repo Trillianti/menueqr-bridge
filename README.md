@@ -24,6 +24,9 @@ a printer to the public internet.
 - 80/82 mm layouts and German kitchen bons for both print paths.
 - Redacted diagnostics and optional automatic updates from the public MenüQR
   update CDN.
+- A user-triggered full diagnostic-log export with bounded local retention and
+  one-way fingerprints instead of restaurant, job, device, printer, or network
+  identifiers.
 
 This is a kitchen workflow connector, not a fiscal receipt system. It does not
 produce tax, VAT, payment, or legally fiscalised receipts.

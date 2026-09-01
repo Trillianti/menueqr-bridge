@@ -319,6 +319,7 @@
       .system-settings-header p { color: #756d65; font-size: 0.86rem; line-height: 1.45; margin: 0.3rem 0 0; }
       .system-grid { display: grid; gap: 0.8rem; grid-template-columns: 1fr auto; margin-top: 1rem; }
       .system-copy { color: #6b6259; font-size: 0.85rem; line-height: 1.4; margin: 0; }
+      .diagnostics-status { color: #756d65; font-size: 0.78rem; grid-column: 1 / -1; line-height: 1.45; margin: 0; }
       .system-actions { align-items: center; display: flex; flex-wrap: wrap; gap: 0.55rem; }
       .update-controls { align-items: center; border-top: 1px solid #e3dcd2; display: flex; gap: 0.8rem; justify-content: space-between; margin-top: 1rem; padding-top: 1rem; }
       .update-controls p { color: #6b6259; font-size: 0.85rem; line-height: 1.4; margin: 0; }
@@ -645,8 +646,9 @@ GESAMT:                  43,50 €
           <div class="system-actions">
             <button type="button" class="button-quiet" data-testid="pause-toggle">Bridge pausieren</button>
             <button type="button" class="button-quiet" data-testid="autostart-toggle">Mit Windows starten</button>
-            <button type="button" class="button-quiet" data-testid="diagnostics-export">Diagnose speichern</button>
+            <button type="button" class="button-quiet" data-testid="diagnostics-export">Diagnoseprotokoll herunterladen</button>
           </div>
+          <p class="diagnostics-status" data-testid="diagnostics-status" role="status" aria-live="polite">Das Protokoll enthält technische Abläufe und Fehler ohne Passwörter oder Bestellinhalte.</p>
         </div>
         <div class="update-controls" data-testid="update-controls" hidden>
           <p data-testid="update-status">Updates werden geprüft</p>

@@ -4,6 +4,7 @@ import type {
   WindowsPrinterSpooler,
   WindowsPrinterSummary,
 } from "../integrations/printers/star-tsp1000-lan/star-tsp1000-lan";
+import type { DiagnosticLogEvent } from "./diagnostic-log";
 
 type PowerShellRunOptions = {
   input?: string;
@@ -39,23 +40,60 @@ export class PowerShellWindowsPrinterSpooler
   constructor(
     private readonly runPowerShell: PowerShellRunner = runPowerShellProcess,
     private readonly platform: NodeJS.Platform = process.platform,
+    private readonly onEvent?: (
+      event: DiagnosticLogEvent,
+    ) => void | Promise<void>,
   ) {}
 
   async listPrinters(): Promise<readonly WindowsPrinterSummary[]> {
+    const startedAt = Date.now();
+    void this.emit({
+      event: "windows_spooler.list_started",
+      state: "running",
+    });
     this.assertWindows();
-    const output = await this.runPowerShell(LIST_PRINTERS_SCRIPT);
-    if (!output.trim()) return [];
-    let parsed: unknown;
     try {
-      parsed = JSON.parse(output);
-    } catch {
-      throw windowsPrinterError("WINDOWS_PRINTER_LIST_INVALID");
+      const output = await this.runPowerShell(LIST_PRINTERS_SCRIPT);
+      if (!output.trim()) {
+        void this.emit({
+          event: "windows_spooler.list_completed",
+          state: "empty",
+          details: { count: 0, durationMs: Date.now() - startedAt },
+        });
+        return [];
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(output);
+      } catch {
+        throw windowsPrinterError("WINDOWS_PRINTER_LIST_INVALID");
+      }
+      const entries = Array.isArray(parsed) ? parsed : [parsed];
+      const printers = entries
+        .map(parsePrinter)
+        .filter((printer): printer is WindowsPrinterSummary => printer !== null)
+        .sort((left, right) => left.name.localeCompare(right.name, "de"));
+      void this.emit({
+        event: "windows_spooler.list_completed",
+        state: "succeeded",
+        details: {
+          count: printers.length,
+          durationMs: Date.now() - startedAt,
+        },
+      });
+      return printers;
+    } catch (error) {
+      void this.emit({
+        event: "windows_spooler.list_failed",
+        code: windowsErrorCode(error),
+        state: "failed",
+        details: {
+          durationMs: Date.now() - startedAt,
+          exitCode: windowsExitCode(error),
+        },
+      });
+      throw error;
     }
-    const entries = Array.isArray(parsed) ? parsed : [parsed];
-    return entries
-      .map(parsePrinter)
-      .filter((printer): printer is WindowsPrinterSummary => printer !== null)
-      .sort((left, right) => left.name.localeCompare(right.name, "de"));
   }
 
   async printText(
@@ -63,6 +101,15 @@ export class PowerShellWindowsPrinterSpooler
     text: string,
     signal: AbortSignal,
   ): Promise<void> {
+    const startedAt = Date.now();
+    void this.emit({
+      event: "windows_spooler.print_started",
+      state: "running",
+      details: {
+        characters: text.length,
+        lines: text.split(/\r?\n/).length,
+      },
+    });
     this.assertWindows();
     if (!safePrinterName(printerName) || !text || text.length > 64 * 1024) {
       throw windowsPrinterError("WINDOWS_PRINT_INVALID");
@@ -73,7 +120,22 @@ export class PowerShellWindowsPrinterSpooler
         environment: { MENUEQR_WINDOWS_PRINTER_NAME: printerName },
         signal,
       });
+      void this.emit({
+        event: "windows_spooler.print_completed",
+        code: "WINDOWS_PRINT_JOB_ACCEPTED",
+        state: "succeeded",
+        details: { durationMs: Date.now() - startedAt },
+      });
     } catch (error) {
+      void this.emit({
+        event: "windows_spooler.print_failed",
+        code: windowsErrorCode(error),
+        state: "failed",
+        details: {
+          durationMs: Date.now() - startedAt,
+          exitCode: windowsExitCode(error),
+        },
+      });
       if (signal.aborted) throw new Error("CANCELED");
       if (
         error instanceof Error &&
@@ -90,6 +152,20 @@ export class PowerShellWindowsPrinterSpooler
       throw windowsPrinterError("WINDOWS_SPOOLER_UNAVAILABLE");
     }
   }
+
+  private async emit(event: DiagnosticLogEvent): Promise<void> {
+    await this.onEvent?.(event);
+  }
+}
+
+function windowsErrorCode(error: unknown): string {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code;
+  return typeof code === "string" ? code : "WINDOWS_PRINT_FAILED";
+}
+
+function windowsExitCode(error: unknown): number {
+  const exitCode = (error as { exitCode?: unknown } | undefined)?.exitCode;
+  return typeof exitCode === "number" ? exitCode : -1;
 }
 
 function parsePrinter(value: unknown): WindowsPrinterSummary | null {
@@ -124,8 +200,14 @@ function safeMetadata(value: unknown): string {
   return String(value);
 }
 
-function windowsPrinterError(code: string): Error & { code: string } {
-  return Object.assign(new Error(code), { code });
+function windowsPrinterError(
+  code: string,
+  exitCode?: number,
+): Error & { code: string; exitCode?: number } {
+  return Object.assign(new Error(code), {
+    code,
+    ...(exitCode === undefined ? {} : { exitCode }),
+  });
 }
 
 function runPowerShellProcess(
@@ -170,7 +252,7 @@ function runPowerShellProcess(
     );
     child.once("close", (code) => {
       if (code === 0) settle();
-      else settle(windowsPrinterError("WINDOWS_POWERSHELL_FAILED"));
+      else settle(windowsPrinterError("WINDOWS_POWERSHELL_FAILED", code ?? -1));
     });
     child.stdout.on("data", (chunk: Buffer) => {
       outputBytes += chunk.byteLength;

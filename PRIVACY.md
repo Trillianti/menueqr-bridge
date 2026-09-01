@@ -22,10 +22,12 @@ printer configuration, last-known printer health, a bounded job-deduplication
 ledger, and bounded diagnostic logs in the current user's application-data
 directory. Printer host addresses remain local and are not sent to analytics.
 
-Diagnostics are exported only after an explicit user action. They are redacted
-and must not contain credentials, raw order payloads, or local network topology.
-Uninstalling the application asks whether this local data should also be
-removed.
+Diagnostics are exported only after an explicit user action and a user-selected
+save location. The export includes the complete retained, size-bounded
+operational log. Restaurant, device, job, and local printer identifiers are
+replaced with stable one-way fingerprints. Credentials, raw order payloads,
+order contents, printer names, and local network topology are not exported.
+Uninstalling the application asks whether this local data should also be removed.
 
 ## Order processing
 

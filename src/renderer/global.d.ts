@@ -185,7 +185,10 @@ declare global {
         model: string;
         note?: string;
       }): Promise<{ status: "sent" }>;
-      exportDiagnostics(): Promise<{ fileName: string }>;
+      exportDiagnostics(): Promise<
+        | { status: "saved"; fileName: string }
+        | { status: "canceled" }
+      >;
       getUpdateSnapshot(): Promise<BridgeUpdateSnapshot>;
       checkForUpdates(): Promise<BridgeUpdateSnapshot>;
       installUpdate(): Promise<boolean>;

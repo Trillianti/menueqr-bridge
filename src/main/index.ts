@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   nativeImage,
@@ -46,6 +47,7 @@ let settingsWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let deviceRuntime: BridgeRuntime | null = null;
 let updateRuntime: BridgeUpdateService | null = null;
+let diagnosticLog: DiagnosticLog | null = null;
 let explicitQuitRequested = false;
 let shellRuntime: ShellRuntimeKind = "unpaired";
 let shutdownInProgress = false;
@@ -220,6 +222,7 @@ function registerIpc(
   route: KitchenRouteService,
   maybeStartRuntime: () => Promise<void>,
   diagnostics: DiagnosticsService,
+  logs: DiagnosticLog,
   updates: BridgeUpdateService,
   development: {
     enabled: boolean;
@@ -246,6 +249,7 @@ function registerIpc(
   });
   ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.showSettings, (event) => {
     assertSettingsSender(event.sender.id);
+    void logs.append({ event: "ui.settings_requested", state: "open" });
     showSettings();
   });
   ipcMain.handle(
@@ -255,6 +259,10 @@ function registerIpc(
       if (typeof enabled !== "boolean")
         throw new Error("Invalid autostart state.");
       const actual = autostart.setEnabled(enabled);
+      void logs.append({
+        event: "settings.autostart_changed",
+        state: actual ? "enabled" : "disabled",
+      });
       return createShellSnapshot(shellRuntime, actual);
     },
   );
@@ -267,6 +275,10 @@ function registerIpc(
       await runtime.setPaused(paused);
       if (!paused) await maybeStartRuntime();
       shellRuntime = paused ? "paused" : "unpaired";
+      void logs.append({
+        event: "runtime.pause_changed",
+        state: paused ? "paused" : "resumed",
+      });
       return createShellSnapshot(shellRuntime, autostart.isEnabled());
     },
   );
@@ -276,17 +288,29 @@ function registerIpc(
   });
   ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.beginPairing, async (event) => {
     assertSettingsSender(event.sender.id);
+    void logs.append({
+      event: "pairing.begin_requested",
+      state: "requested",
+    });
     return pairing.begin();
   });
   ipcMain.handle(
     BRIDGE_FOUNDATION_CHANNELS.openPairingBrowser,
     async (event) => {
       assertSettingsSender(event.sender.id);
+      void logs.append({
+        event: "pairing.browser_requested",
+        state: "requested",
+      });
       await pairing.openPairingBrowser();
     },
   );
   ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.disconnect, async (event) => {
     assertSettingsSender(event.sender.id);
+    void logs.append({
+      event: "pairing.disconnect_requested",
+      state: "requested",
+    });
     runtime.stop();
     return pairing.disconnect();
   });
@@ -318,6 +342,10 @@ function registerIpc(
       assertSettingsSender(event.sender.id);
       const { configuration, printerId } =
         validatePrinterConfigurationRequest(request);
+      void logs.append({
+        event: "printer.save_requested",
+        state: printerId ? "update" : "create",
+      });
       const snapshot = await route.saveConfiguration(configuration, printerId);
       await maybeStartRuntime();
       return snapshot;
@@ -327,6 +355,10 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.deletePrinterConfiguration,
     async (event, printerId: unknown) => {
       assertSettingsSender(event.sender.id);
+      void logs.append({
+        event: "printer.delete_requested",
+        state: "requested",
+      });
       const snapshot = await route.deleteConfiguration(
         validatePrinterId(printerId),
       );
@@ -338,6 +370,10 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.activatePrinterConfiguration,
     async (event, printerId: unknown) => {
       assertSettingsSender(event.sender.id);
+      void logs.append({
+        event: "printer.activate_requested",
+        state: "requested",
+      });
       const snapshot = await route.activateConfiguration(
         validatePrinterId(printerId),
       );
@@ -349,6 +385,10 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.testPrinterConnection,
     async (event, printerId: unknown) => {
       assertSettingsSender(event.sender.id);
+      void logs.append({
+        event: "printer.connection_test_requested",
+        state: "requested",
+      });
       return route.checkConnection(validateOptionalPrinterId(printerId));
     },
   );
@@ -356,6 +396,10 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.testPrinterPrint,
     async (event, printerId: unknown) => {
       assertSettingsSender(event.sender.id);
+      void logs.append({
+        event: "printer.test_print_requested",
+        state: "requested",
+      });
       return route.testPrint(
         new AbortController().signal,
         validateOptionalPrinterId(printerId),
@@ -366,17 +410,29 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.listWindowsPrinters,
     async (event) => {
       assertSettingsSender(event.sender.id);
+      void logs.append({
+        event: "printer.windows_list_requested",
+        state: "requested",
+      });
       return route.listWindowsPrinters();
     },
   );
   ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.discoverPrinters, async (event) => {
     assertSettingsSender(event.sender.id);
+    void logs.append({
+      event: "printer.discovery_requested",
+      state: "requested",
+    });
     return route.discoverLocalPrinters(new AbortController().signal);
   });
   ipcMain.handle(
     BRIDGE_FOUNDATION_CHANNELS.selectDiscoveredPrinter,
     (event, candidateId: unknown) => {
       assertSettingsSender(event.sender.id);
+      void logs.append({
+        event: "printer.discovery_selection_requested",
+        state: "requested",
+      });
       if (typeof candidateId !== "string" || candidateId.length > 160) {
         throw new Error("Invalid discovered printer.");
       }
@@ -387,6 +443,10 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.testDiscoveredPrinter,
     async (event) => {
       assertSettingsSender(event.sender.id);
+      void logs.append({
+        event: "printer.discovery_test_requested",
+        state: "requested",
+      });
       return route.testSelectedDiscoveredPrinter(new AbortController().signal);
     },
   );
@@ -396,6 +456,11 @@ function registerIpc(
       assertSettingsSender(event.sender.id);
       const { printerId, bonLayoutProfile } =
         validateDiscoveredPrinterConfirmation(request);
+      void logs.append({
+        event: "printer.discovery_confirm_requested",
+        state: "requested",
+        details: { layout: bonLayoutProfile },
+      });
       const snapshot = await route.confirmSelectedDiscoveredPrinter(
         printerId,
         bonLayoutProfile,
@@ -417,7 +482,41 @@ function registerIpc(
     BRIDGE_FOUNDATION_CHANNELS.exportDiagnostics,
     async (event) => {
       assertSettingsSender(event.sender.id);
-      return diagnostics.export();
+      await logs.append({
+        event: "diagnostics.export_requested",
+        state: "waiting_for_destination",
+      });
+      const destination = await dialog.showSaveDialog(settingsWindow!, {
+        title: "MenüQR Diagnoseprotokoll speichern",
+        defaultPath: join(
+          app.getPath("downloads"),
+          diagnostics.suggestedFileName(),
+        ),
+        buttonLabel: "Protokoll speichern",
+        filters: [{ name: "JSON-Diagnose", extensions: ["json"] }],
+      });
+      if (destination.canceled || !destination.filePath) {
+        await logs.append({
+          event: "diagnostics.export_canceled",
+          state: "canceled",
+        });
+        return { status: "canceled" as const };
+      }
+      try {
+        const result = await diagnostics.export(destination.filePath);
+        await logs.append({
+          event: "diagnostics.export_completed",
+          state: "saved",
+        });
+        return { status: "saved" as const, fileName: result.fileName };
+      } catch {
+        await logs.append({
+          event: "diagnostics.export_failed",
+          code: "EXPORT_FAILED",
+          state: "failed",
+        });
+        throw new Error("DIAGNOSTICS_EXPORT_FAILED");
+      }
     },
   );
   ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.getUpdateSnapshot, (event) => {
@@ -554,13 +653,19 @@ if (!app.requestSingleInstanceLock()) {
     ).readOrCreate();
     const diagnosticsPath = join(app.getPath("userData"), "diagnostics");
     const logs = new DiagnosticLog(join(diagnosticsPath, "logs"));
+    diagnosticLog = logs;
     const route = new KitchenRouteService(
       join(app.getPath("userData"), "runtime", "adapter-configuration.json"),
       join(app.getPath("userData"), "runtime", "execution-ledger.json"),
       pairingApi,
       (event) => logs.append(event),
       StarTsp1000LanAdapter.withWindowsSpooler(
-        new PowerShellWindowsPrinterSpooler(),
+        new PowerShellWindowsPrinterSpooler(
+          undefined,
+          undefined,
+          (event) => logs.append(event),
+        ),
+        (event) => logs.append(event),
       ),
     );
     route.setHealthTransitionListener((transition) => {
@@ -664,6 +769,7 @@ if (!app.requestSingleInstanceLock()) {
       route,
       maybeStartRuntime,
       diagnostics,
+      logs,
       updates,
       {
         enabled: localDevelopment,
@@ -683,7 +789,13 @@ app.on("before-quit", (event) => {
   if (!shutdownInProgress && deviceRuntime) {
     event.preventDefault();
     explicitQuitRequested = true;
-    void deviceRuntime.shutdown().finally(() => {
+    void Promise.all([
+      deviceRuntime.shutdown(),
+      diagnosticLog?.append({
+        event: "app.shutdown_requested",
+        state: "stopping",
+      }) ?? Promise.resolve(),
+    ]).finally(() => {
       shutdownInProgress = true;
       tray?.destroy();
       tray = null;
@@ -696,4 +808,13 @@ app.on("before-quit", (event) => {
   deviceRuntime?.stop();
   tray?.destroy();
   tray = null;
+});
+
+process.on("uncaughtExceptionMonitor", (error) => {
+  void diagnosticLog?.append({
+    event: "process.uncaught_exception",
+    code: "UNCAUGHT_EXCEPTION",
+    message: error instanceof Error ? error.message : "Unknown exception",
+    state: "fatal",
+  });
 });

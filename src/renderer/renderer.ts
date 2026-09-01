@@ -322,6 +322,9 @@ const printerRequestStatus = requiredElement<HTMLElement>(
 const diagnosticsButton = requiredElement<HTMLButtonElement>(
   "[data-testid='diagnostics-export']",
 );
+const diagnosticsStatus = requiredElement<HTMLElement>(
+  "[data-testid='diagnostics-status']",
+);
 const integrationsList = requiredElement<HTMLElement>(
   "[data-testid='integrations-list']",
 );
@@ -1767,17 +1770,23 @@ printerDiscoveryConfirmButton.addEventListener("click", () => {
 
 diagnosticsButton.addEventListener("click", () => {
   diagnosticsButton.disabled = true;
+  diagnosticsButton.textContent = "Protokoll wird vorbereitet …";
+  diagnosticsStatus.textContent = "Bitte wählen Sie einen Speicherort.";
   void window.menuqrBridge
     .exportDiagnostics()
-    .then(({ fileName }) => {
-      shellElement.textContent = `Diagnose wurde lokal gespeichert: ${fileName}`;
+    .then((result) => {
+      diagnosticsStatus.textContent =
+        result.status === "saved"
+          ? `Diagnoseprotokoll gespeichert: ${result.fileName}`
+          : "Speichern wurde abgebrochen.";
     })
     .catch(() => {
-      shellElement.textContent =
+      diagnosticsStatus.textContent =
         "Die Diagnose konnte nicht gespeichert werden.";
     })
     .finally(() => {
       diagnosticsButton.disabled = false;
+      diagnosticsButton.textContent = "Diagnoseprotokoll herunterladen";
     });
 });
 

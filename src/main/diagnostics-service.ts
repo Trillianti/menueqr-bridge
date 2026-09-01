@@ -1,15 +1,19 @@
 import { promises as fs } from "node:fs";
 import { arch, platform, release } from "node:os";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 
 import type { BridgeRuntime } from "../core/bridge-runtime";
 import type { CredentialStore } from "../core/credential-store";
 import type { AutostartAdapter } from "./autostart";
-import type { DiagnosticLog, DiagnosticLogEntry } from "./diagnostic-log";
+import {
+  fingerprintDiagnosticId,
+  type DiagnosticLog,
+  type DiagnosticLogEntry,
+} from "./diagnostic-log";
 import type { KitchenRouteService } from "./kitchen-route-service";
 
 export type BridgeDiagnosticsSnapshot = {
-  schemaVersion: 1;
+  schemaVersion: 2;
   generatedAt: string;
   application: {
     appVersion: string;
@@ -18,8 +22,8 @@ export type BridgeDiagnosticsSnapshot = {
     release: string;
     architecture: string;
   };
-  pairedRestaurant: { id: string; displayName: string } | null;
-  deviceId: string | null;
+  pairedRestaurant: { fingerprint: string } | null;
+  deviceFingerprint: string | null;
   autostartEnabled: boolean;
   runtime: ReturnType<BridgeRuntime["diagnostics"]>;
   printer: Awaited<ReturnType<KitchenRouteService["diagnostics"]>>;
@@ -37,10 +41,14 @@ export class DiagnosticsService {
     private readonly logs: DiagnosticLog,
   ) {}
 
-  async snapshot(): Promise<BridgeDiagnosticsSnapshot> {
+  async snapshot(
+    includeCompleteLog = false,
+  ): Promise<BridgeDiagnosticsSnapshot> {
     const credential = await this.credentials.read().catch(() => null);
+    const runtime = this.runtime.diagnostics();
+    const printer = await this.route.diagnostics();
     return {
-      schemaVersion: 1,
+      schemaVersion: 2,
       generatedAt: new Date().toISOString(),
       application: {
         appVersion: this.appVersion,
@@ -49,28 +57,54 @@ export class DiagnosticsService {
         release: release(),
         architecture: arch(),
       },
-      pairedRestaurant: credential?.restaurant ?? null,
-      deviceId: credential?.deviceId ?? null,
+      pairedRestaurant: credential
+        ? { fingerprint: fingerprintDiagnosticId(credential.restaurant.id) }
+        : null,
+      deviceFingerprint: credential
+        ? fingerprintDiagnosticId(credential.deviceId)
+        : null,
       autostartEnabled: this.autostart.isEnabled(),
-      runtime: this.runtime.diagnostics(),
-      printer: await this.route.diagnostics(),
-      logs: await this.logs.recent(),
+      runtime: {
+        ...runtime,
+        recentJobIds: runtime.recentJobIds.map(fingerprintDiagnosticId),
+        recentFailedJobIds: runtime.recentFailedJobIds.map(
+          fingerprintDiagnosticId,
+        ),
+      },
+      printer: {
+        ...printer,
+        recentJobs: printer.recentJobs.map((job) => ({
+          ...job,
+          jobId: fingerprintDiagnosticId(job.jobId),
+        })),
+      },
+      logs: includeCompleteLog
+        ? await this.logs.all()
+        : await this.logs.recent(200),
     };
   }
 
-  async export(): Promise<{ fileName: string }> {
-    const snapshot = await this.snapshot();
-    await fs.mkdir(this.directory, { recursive: true, mode: 0o700 });
-    const fileName = `menuqr-bridge-diagnostics-${safeTimestamp(snapshot.generatedAt)}.json`;
+  suggestedFileName(now = new Date()): string {
+    return `menuqr-bridge-diagnostics-${safeTimestamp(now.toISOString())}.json`;
+  }
+
+  async export(destinationPath?: string): Promise<{ fileName: string }> {
+    const snapshot = await this.snapshot(true);
+    const fileName = this.suggestedFileName(new Date(snapshot.generatedAt));
+    const outputPath = destinationPath ?? join(this.directory, fileName);
+    await fs.mkdir(destinationPath ? dirname(destinationPath) : this.directory, {
+      recursive: true,
+      mode: 0o700,
+    });
     await fs.writeFile(
-      join(this.directory, fileName),
+      outputPath,
       JSON.stringify(snapshot, null, 2),
       {
         encoding: "utf8",
         mode: 0o600,
       },
     );
-    return { fileName };
+    return { fileName: destinationPath ? basename(outputPath) : fileName };
   }
 
   path(): string {

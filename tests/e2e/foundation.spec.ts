@@ -205,6 +205,12 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await expect(
       window.getByRole("heading", { name: "App-Einstellungen" }),
     ).toBeVisible();
+    await expect(window.getByTestId("diagnostics-export")).toHaveText(
+      "Diagnoseprotokoll herunterladen",
+    );
+    await expect(window.getByTestId("diagnostics-status")).toContainText(
+      "ohne Passwörter oder Bestellinhalte",
+    );
 
     await window.reload();
     await window.evaluate(() => {

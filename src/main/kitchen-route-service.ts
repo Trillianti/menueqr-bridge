@@ -161,7 +161,18 @@ export class KitchenRouteService implements JobExecutionPort {
     this.healthByPrinterId.delete(id);
     this.consecutiveHealthFailures.delete(id);
     await this.persistHealth();
-    return this.snapshot();
+    const snapshot = await this.snapshot();
+    const saved = snapshot.printers.find((printer) => printer.id === id);
+    void this.log?.({
+      event: "printer.configuration_saved",
+      adapterId: this.adapter.id,
+      state: printerId ? "updated" : "created",
+      details: {
+        transport: saved?.configuration.transport ?? "unknown",
+        active: saved?.active ?? false,
+      },
+    });
+    return snapshot;
   }
 
   async deleteConfiguration(printerId: string): Promise<LocalPrinterSnapshot> {
@@ -169,6 +180,11 @@ export class KitchenRouteService implements JobExecutionPort {
     this.healthByPrinterId.delete(printerId);
     this.consecutiveHealthFailures.delete(printerId);
     await this.persistHealth();
+    void this.log?.({
+      event: "printer.configuration_deleted",
+      adapterId: this.adapter.id,
+      state: "deleted",
+    });
     return this.snapshot();
   }
 
@@ -176,6 +192,11 @@ export class KitchenRouteService implements JobExecutionPort {
     printerId: string,
   ): Promise<LocalPrinterSnapshot> {
     await this.configurations.activateProfile(this.adapter, printerId);
+    void this.log?.({
+      event: "printer.configuration_activated",
+      adapterId: this.adapter.id,
+      state: "active",
+    });
     return this.snapshot();
   }
 
@@ -194,7 +215,14 @@ export class KitchenRouteService implements JobExecutionPort {
   }
 
   async listWindowsPrinters(): Promise<readonly WindowsPrinterSummary[]> {
-    return this.adapter.listWindowsPrinters?.() ?? [];
+    const printers = (await this.adapter.listWindowsPrinters?.()) ?? [];
+    void this.log?.({
+      event: "printer.windows_list",
+      adapterId: this.adapter.id,
+      state: "completed",
+      details: { count: printers.length },
+    });
+    return printers;
   }
 
   async testPrint(
@@ -263,6 +291,11 @@ export class KitchenRouteService implements JobExecutionPort {
     this.requireDiscoveredCandidate(candidateId);
     this.selectedCandidateId = candidateId;
     this.testedCandidateId = null;
+    void this.log?.({
+      event: "printer.discovery_selected",
+      adapterId: this.adapter.id,
+      state: "selected",
+    });
     return this.discoverySnapshot();
   }
 
@@ -431,6 +464,16 @@ export class KitchenRouteService implements JobExecutionPort {
             Buffer.from(renderKitchenBonText(payload, options), "utf8")
         : undefined,
     );
+    void this.log?.({
+      event: "job.execution_started",
+      jobId: leased.job.id,
+      adapterId: this.adapter.id,
+      state: "running",
+      details: {
+        transport: configuration.transport,
+        jobType: leased.job.type,
+      },
+    });
     const outcome = await executor.handoff(credential, leased, signal);
     if (outcome.kind === "succeeded") {
       if (snapshot.activePrinterId)
