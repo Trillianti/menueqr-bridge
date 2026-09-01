@@ -35,6 +35,8 @@ describe("Star TSP1000 LAN transport", () => {
       { address: "127.0.0.1", family: 4 },
     ]);
     const config = {
+      transport: "raw_tcp" as const,
+      windowsPrinterName: null,
       host: "localhost",
       port,
       commandMode: "star_line" as const,
@@ -61,6 +63,8 @@ describe("Star TSP1000 LAN transport", () => {
     const controller = new AbortController();
     controller.abort();
     const config = {
+      transport: "raw_tcp" as const,
+      windowsPrinterName: null,
       host: "localhost",
       port,
       commandMode: "esc_pos" as const,

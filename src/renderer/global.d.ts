@@ -53,6 +53,8 @@ type BridgeDeviceRuntimeState = {
 };
 
 type BridgeLocalPrinterConfiguration = {
+  transport: "raw_tcp" | "windows_spooler";
+  windowsPrinterName: string | null;
   host: string;
   port: number;
   commandMode: "star_line" | "esc_pos";
@@ -158,6 +160,14 @@ declare global {
         code: string;
         message: string;
       }>;
+      listWindowsPrinters(): Promise<
+        Array<{
+          name: string;
+          driverName: string;
+          portName: string;
+          status: string;
+        }>
+      >;
       discoverPrinters(): Promise<BridgePrinterDiscovery>;
       selectDiscoveredPrinter(
         candidateId: string,

@@ -11,6 +11,8 @@ document.body.dataset.platform = navigator.platform.includes("Mac")
     : "other";
 
 type PrinterFormConfiguration = {
+  transport: "raw_tcp" | "windows_spooler";
+  windowsPrinterName: string | null;
   host: string;
   port: number;
   commandMode: "star_line" | "esc_pos";
@@ -20,6 +22,13 @@ type PrinterFormConfiguration = {
   writeTimeoutMs: number;
   cutAfterPrint: boolean;
   bonLayoutProfile: "compact" | "kitchen" | "detailed";
+};
+
+type WindowsPrinter = {
+  name: string;
+  driverName: string;
+  portName: string;
+  status: string;
 };
 
 type DiscoveredPrinter = {
@@ -357,6 +366,7 @@ let integrationsSnapshot: IntegrationSnapshot[] = [];
 let updateSnapshot: UpdateSnapshot | null = null;
 let developmentSnapshot: DevelopmentSnapshot | null = null;
 let printerDiscovery: PrinterDiscovery | null = null;
+let windowsPrinters: WindowsPrinter[] = [];
 let discoveryTestSucceeded = false;
 let discoveryConfirmed = false;
 let discoveryInProgress = false;
@@ -454,6 +464,19 @@ function printerHealthLabel(health: PrinterHealth | null): {
       detail: "Der Drucker ist im lokalen Netzwerk erreichbar.",
       state: "success",
     };
+  if (health.code === "WINDOWS_PRINTER_NOT_FOUND")
+    return {
+      title: "Windows-Drucker fehlt",
+      detail:
+        "Der ausgewählte Drucker ist in Windows nicht mehr verfügbar. Wählen Sie ihn erneut aus.",
+      state: "attention",
+    };
+  if (health.code === "WINDOWS_SPOOLER_UNAVAILABLE")
+    return {
+      title: "Windows-Druck nicht verfügbar",
+      detail: "Die Windows-Druckerwarteschlange ist gerade nicht verfügbar.",
+      state: "attention",
+    };
   if (health.status === "offline")
     return {
       title: "Offline",
@@ -517,7 +540,10 @@ function renderPrinterWorkspace(): void {
     icon.innerHTML =
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V4h12v5M6 18h12v2H6z"/><path d="M5 9h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z"/><path d="M17 13h.01"/></svg>';
     copy.className = "saved-printer-copy";
-    name.textContent = "Star TSP1000 LAN";
+    name.textContent =
+      configuration.transport === "windows_spooler"
+        ? "Star TSP1000 über Windows"
+        : "Star TSP1000 LAN";
     name.setAttribute("data-testid", "saved-printer-name");
     meta.className = "saved-printer-meta";
     const layoutLabel =
@@ -526,7 +552,11 @@ function renderPrinterWorkspace(): void {
         : configuration.bonLayoutProfile === "kitchen"
           ? "Küche Plus"
           : "Vollständig";
-    meta.textContent = `${configuration.host}:${configuration.port} · ${configuration.paperWidthMm} mm · ${layoutLabel} · ${configuration.commandMode === "star_line" ? "Star Line" : "ESC/POS"}${printer.active ? " · Aktiv" : ""}`;
+    const connectionLabel =
+      configuration.transport === "windows_spooler"
+        ? `Windows · ${configuration.windowsPrinterName ?? "Drucker nicht gewählt"}`
+        : `${configuration.host}:${configuration.port} · ${configuration.commandMode === "star_line" ? "Star Line" : "ESC/POS"}`;
+    meta.textContent = `${connectionLabel} · ${configuration.paperWidthMm} mm · ${layoutLabel}${printer.active ? " · Aktiv" : ""}`;
     meta.setAttribute("data-testid", "saved-printer-address");
     copy.append(name, meta);
     primary.append(icon, copy);
@@ -611,7 +641,8 @@ function renderPrinterWorkspace(): void {
   }
   if (editedPrinter) {
     const label = printerHealthLabel(editedPrinter.health);
-    printerDetailsAddress.textContent = `${editedPrinter.configuration.host}:${editedPrinter.configuration.port} · ${editedPrinter.active ? "Aktiver Küchendrucker" : "Nicht aktiv"}`;
+    const configuration = editedPrinter.configuration;
+    printerDetailsAddress.textContent = `${configuration.transport === "windows_spooler" ? configuration.windowsPrinterName : `${configuration.host}:${configuration.port}`} · ${editedPrinter.active ? "Aktiver Küchendrucker" : "Nicht aktiv"}`;
     printerDetailsHealth.textContent = label.title;
     printerDetailsHealth.dataset.state = label.state;
     printerDetailsConnectionButton.disabled = printerConnectionsInProgress.has(
@@ -971,7 +1002,15 @@ function printerFormData(
   form: HTMLFormElement = printerForm,
 ): PrinterFormConfiguration {
   const value = new FormData(form);
+  const transport = String(value.get("transport") ?? "raw_tcp") as
+    | "raw_tcp"
+    | "windows_spooler";
   return {
+    transport,
+    windowsPrinterName:
+      transport === "windows_spooler"
+        ? String(value.get("windowsPrinterName") ?? "").trim()
+        : null,
     host: String(value.get("host") ?? ""),
     port: Number(value.get("port") ?? 9100),
     commandMode: String(value.get("commandMode") ?? "star_line") as
@@ -1004,6 +1043,7 @@ function fillPrinterForm(
   configuration: PrinterFormConfiguration,
   form: HTMLFormElement = printerForm,
 ): void {
+  populateWindowsPrinterSelect(form, configuration.windowsPrinterName);
   for (const [name, value] of Object.entries(configuration)) {
     const radioFields = form.querySelectorAll<HTMLInputElement>(
       `input[type="radio"][name="${name}"]`,
@@ -1018,12 +1058,90 @@ function fillPrinterForm(
     if (field instanceof HTMLInputElement && field.type === "checkbox") {
       field.checked = value === true;
     } else if (
-      field instanceof HTMLInputElement ||
-      field instanceof HTMLSelectElement
+      value !== null &&
+      (field instanceof HTMLInputElement ||
+        field instanceof HTMLSelectElement)
     ) {
       field.value = String(value);
     }
   }
+  syncPrinterTransportFields(form);
+}
+
+function populateWindowsPrinterSelect(
+  form: HTMLFormElement,
+  selected: string | null = null,
+): void {
+  const select = form.elements.namedItem("windowsPrinterName");
+  if (!(select instanceof HTMLSelectElement)) return;
+  select.replaceChildren();
+  if (windowsPrinters.length === 0) {
+    const option = document.createElement("option");
+    option.value = selected ?? "";
+    option.textContent =
+      selected ?? "Keine installierten Windows-Drucker gefunden";
+    select.append(option);
+  } else {
+    for (const printer of windowsPrinters) {
+      const option = document.createElement("option");
+      option.value = printer.name;
+      option.textContent = printer.name;
+      select.append(option);
+    }
+    if (
+      selected &&
+      !windowsPrinters.some((printer) => printer.name === selected)
+    ) {
+      const option = document.createElement("option");
+      option.value = selected;
+      option.textContent = `${selected} (derzeit nicht verfügbar)`;
+      select.prepend(option);
+    }
+  }
+  select.value = selected ?? windowsPrinters[0]?.name ?? "";
+}
+
+function syncPrinterTransportFields(form: HTMLFormElement): void {
+  const transport = form.elements.namedItem("transport");
+  if (!(transport instanceof HTMLSelectElement)) return;
+  const useWindows = transport.value === "windows_spooler";
+  form
+    .querySelectorAll<HTMLElement>("[data-transport-field='network']")
+    .forEach((element) => {
+      element.hidden = useWindows;
+      element
+        .querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+          "input, select",
+        )
+        .forEach((control) => {
+          control.disabled = useWindows;
+        });
+    });
+  form
+    .querySelectorAll<HTMLElement>("[data-transport-field='windows']")
+    .forEach((element) => {
+      element.hidden = !useWindows;
+      element
+        .querySelectorAll<HTMLSelectElement>("select")
+        .forEach((control) => {
+          control.disabled = !useWindows;
+          control.required = useWindows;
+        });
+    });
+}
+
+async function refreshWindowsPrinters(): Promise<void> {
+  try {
+    windowsPrinters = await window.menuqrBridge.listWindowsPrinters();
+  } catch {
+    windowsPrinters = [];
+  }
+  populateWindowsPrinterSelect(printerForm);
+  populateWindowsPrinterSelect(
+    printerDetailsForm,
+    printerSnapshot?.printers.find((printer) => printer.id === editingPrinterId)
+      ?.configuration.windowsPrinterName ?? null,
+  );
 }
 
 async function refreshFoundation(): Promise<void> {
@@ -1112,7 +1230,9 @@ async function testPrinter(printerId: string): Promise<void> {
     printerFeedbackById.set(printerId, {
       message:
         result.status === "succeeded"
-          ? "Der Testbon wurde vollständig an den Drucker übertragen."
+          ? result.code === "WINDOWS_PRINT_JOB_ACCEPTED"
+            ? "Windows hat den Testbon in die Druckerwarteschlange übernommen."
+            : "Der Testbon wurde vollständig an den Drucker übertragen."
           : "Der Testbon konnte nicht vollständig übertragen werden.",
       tone: result.status === "succeeded" ? "success" : "attention",
     });
@@ -1206,6 +1326,7 @@ void refreshDeviceRuntime().catch(() => {
   runtimeElement.textContent = "Bridge-Status ist gerade nicht verfügbar.";
 });
 void refreshPrinter().catch(showPrinterUnavailable);
+void refreshWindowsPrinters().catch(() => undefined);
 void refreshIntegrations().catch(() => {
   integrationsList.replaceChildren();
 });
@@ -1216,6 +1337,16 @@ void refreshDevelopmentDiagnostics().catch(() => {
   developmentPanel.hidden = true;
 });
 renderPrinterDiscovery();
+for (const form of [printerForm, printerDetailsForm]) {
+  const transport = form.elements.namedItem("transport");
+  if (transport instanceof HTMLSelectElement) {
+    transport.addEventListener("change", () =>
+      syncPrinterTransportFields(form),
+    );
+  }
+  populateWindowsPrinterSelect(form);
+  syncPrinterTransportFields(form);
+}
 window.setInterval(() => {
   void refreshDeviceRuntime().catch(() => undefined);
   void refreshPrinter().catch(() => undefined);
@@ -1301,6 +1432,9 @@ settingsTab.addEventListener("click", () => {
 function openPrinterSetup(): void {
   editingPrinterId = null;
   printerForm.reset();
+  populateWindowsPrinterSelect(printerForm);
+  syncPrinterTransportFields(printerForm);
+  void refreshWindowsPrinters().catch(() => undefined);
   manualPrinterSettings.open = false;
   printerTypeSelect.value = "";
   printerSetupTitle.textContent = "Küchendrucker hinzufügen";
@@ -1318,6 +1452,13 @@ function openPrinterDetails(printerId: string): void {
   if (!printer) return;
   editingPrinterId = printerId;
   fillPrinterForm(printer.configuration, printerDetailsForm);
+  void refreshWindowsPrinters().then(() => {
+    populateWindowsPrinterSelect(
+      printerDetailsForm,
+      printer.configuration.windowsPrinterName,
+    );
+    syncPrinterTransportFields(printerDetailsForm);
+  });
   printerDetailsStatus.dataset.tone = "neutral";
   printerDetailsStatus.textContent =
     "Änderungen gelten nur für diesen Drucker.";
@@ -1346,7 +1487,11 @@ function openPrinterDeleteDialog(printerId: string): void {
   );
   if (!printer) return;
   pendingDeletePrinterId = printerId;
-  printerDeleteCopy.textContent = `Star TSP1000 LAN (${printer.configuration.host}:${printer.configuration.port}) wird nur von diesem Computer entfernt.`;
+  const connection =
+    printer.configuration.transport === "windows_spooler"
+      ? printer.configuration.windowsPrinterName
+      : `${printer.configuration.host}:${printer.configuration.port}`;
+  printerDeleteCopy.textContent = `Star TSP1000 (${connection}) wird nur von diesem Computer entfernt.`;
   printerDeleteDialog.showModal();
 }
 printerDeleteCancelButton.addEventListener("click", closePrinterDeleteDialog);
@@ -1396,7 +1541,7 @@ printerDetailsForm.addEventListener("submit", (event) => {
     .catch(() => {
       printerDetailsStatus.dataset.tone = "attention";
       printerDetailsStatus.textContent =
-        "Die Einstellungen sind ungültig. Prüfen Sie Adresse und Port.";
+        "Die Einstellungen sind ungültig. Prüfen Sie den gewählten Druckweg.";
     });
 });
 printerDetailsConnectionButton.addEventListener("click", () => {
@@ -1429,7 +1574,9 @@ printerDetailsTestButton.addEventListener("click", () => {
         result.status === "succeeded" ? "success" : "attention";
       printerDetailsStatus.textContent =
         result.status === "succeeded"
-          ? "Der Testbon wurde an diesen Drucker gesendet."
+          ? result.code === "WINDOWS_PRINT_JOB_ACCEPTED"
+            ? "Windows hat den Testbon in die Druckerwarteschlange übernommen."
+            : "Der Testbon wurde an diesen Drucker gesendet."
           : "Der Testbon konnte nicht gedruckt werden.";
       void refreshPrinter().catch(() => undefined);
     })
@@ -1538,7 +1685,7 @@ printerForm.addEventListener("submit", (event) => {
     })
     .catch(() => {
       printerElement.textContent =
-        "Die Druckereinstellung ist ungültig. Prüfen Sie Adresse und Port.";
+        "Die Druckereinstellung ist ungültig. Prüfen Sie den gewählten Druckweg.";
       serviceStatus.dataset.state = "attention";
     });
 });

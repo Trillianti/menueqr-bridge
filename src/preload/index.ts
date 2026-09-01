@@ -24,6 +24,7 @@ const activatePrinterConfigurationChannel =
   "bridge:printer:activate-configuration" as const;
 const testPrinterConnectionChannel = "bridge:printer:test-connection" as const;
 const testPrinterPrintChannel = "bridge:printer:test-print" as const;
+const listWindowsPrintersChannel = "bridge:printer:list-windows" as const;
 const discoverPrintersChannel = "bridge:printer:discover" as const;
 const selectDiscoveredPrinterChannel =
   "bridge:printer:select-discovered" as const;
@@ -67,6 +68,7 @@ const bridgeFoundation = Object.freeze({
     ipcRenderer.invoke(testPrinterConnectionChannel, printerId),
   testPrinterPrint: (printerId?: string) =>
     ipcRenderer.invoke(testPrinterPrintChannel, printerId),
+  listWindowsPrinters: () => ipcRenderer.invoke(listWindowsPrintersChannel),
   discoverPrinters: () => ipcRenderer.invoke(discoverPrintersChannel),
   selectDiscoveredPrinter: (candidateId: string) =>
     ipcRenderer.invoke(selectDiscoveredPrinterChannel, candidateId),

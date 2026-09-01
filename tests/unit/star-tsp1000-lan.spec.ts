@@ -8,6 +8,8 @@ import {
 describe("Star TSP1000 LAN configuration", () => {
   const adapter = new StarTsp1000LanAdapter();
   const valid = {
+    transport: "raw_tcp" as const,
+    windowsPrinterName: null,
     host: "192.168.1.20",
     port: 9100,
     commandMode: "star_line" as const,
@@ -46,6 +48,85 @@ describe("Star TSP1000 LAN configuration", () => {
       adapter.validateConfiguration({
         ...valid,
         bonLayoutProfile: "unknown",
+      }),
+    ).toThrow("INVALID_CONFIGURATION");
+  });
+
+  it("migrates version-one LAN profiles without changing their print path", () => {
+    const { transport: _transport, windowsPrinterName: _printer, ...legacy } =
+      valid;
+    expect(adapter.migrateConfiguration(legacy, 1)).toMatchObject({
+      transport: "raw_tcp",
+      windowsPrinterName: null,
+      host: valid.host,
+      port: 9100,
+    });
+    expect(adapter.migrateConfiguration(legacy, 0)).toBeUndefined();
+  });
+
+  it("uses an explicitly selected installed Windows printer", async () => {
+    const printText = jest.fn().mockResolvedValue(undefined);
+    const spooler = {
+      listPrinters: jest.fn().mockResolvedValue([
+        {
+          name: "Star TSP1000 (TSP 1045) (Hoffest)",
+          driverName: "Star TSP1000",
+          portName: "192.168.178.55",
+          status: "Normal",
+        },
+      ]),
+      printText,
+    };
+    const windowsAdapter = StarTsp1000LanAdapter.withWindowsSpooler(spooler);
+    const configuration = windowsAdapter.validateConfiguration({
+      ...valid,
+      transport: "windows_spooler",
+      windowsPrinterName: "Star TSP1000 (TSP 1045) (Hoffest)",
+      host: "",
+    });
+
+    await expect(windowsAdapter.healthCheck(configuration)).resolves.toMatchObject({
+      status: "ready",
+      code: "WINDOWS_PRINTER_READY",
+    });
+    await expect(
+      windowsAdapter.execute(
+        Buffer.from("TISCH 4\r\n", "utf8"),
+        configuration,
+        new AbortController().signal,
+      ),
+    ).resolves.toMatchObject({
+      status: "succeeded",
+      code: "WINDOWS_PRINT_JOB_ACCEPTED",
+    });
+    await expect(
+      windowsAdapter.test(configuration, new AbortController().signal),
+    ).resolves.toMatchObject({
+      status: "succeeded",
+      code: "WINDOWS_PRINT_JOB_ACCEPTED",
+    });
+    expect(printText).toHaveBeenNthCalledWith(
+      1,
+      "Star TSP1000 (TSP 1045) (Hoffest)",
+      "TISCH 4\r\n",
+      expect.any(AbortSignal),
+    );
+    expect(printText.mock.calls[1]?.[1]).toContain("MENÜQR BRIDGE TEST");
+    const redacted = windowsAdapter.redactConfiguration(configuration);
+    expect(redacted).toMatchObject({
+      transport: "windows_spooler",
+      hostFingerprint: null,
+    });
+    expect(JSON.stringify(redacted)).not.toContain("Hoffest");
+  });
+
+  it("rejects a missing Windows printer selection", () => {
+    expect(() =>
+      adapter.validateConfiguration({
+        ...valid,
+        transport: "windows_spooler",
+        windowsPrinterName: "",
+        host: "",
       }),
     ).toThrow("INVALID_CONFIGURATION");
   });

@@ -33,6 +33,10 @@ export class PrintExecutor<Configuration> {
     private readonly renderOptions: BonRenderOptions,
     private readonly ledger: ExecutionLedger,
     private readonly completion: JobCompletionClient,
+    private readonly renderPayload: (
+      payload: unknown,
+      options: BonRenderOptions,
+    ) => Uint8Array = renderKitchenBon,
   ) {}
 
   async handoff(
@@ -61,7 +65,10 @@ export class PrintExecutor<Configuration> {
       }
       if (leased.job.type !== "kitchen_order")
         throw new Error("UNSUPPORTED_JOB_TYPE");
-      const buffer = renderKitchenBon(leased.job.payload, this.renderOptions);
+      const buffer = this.renderPayload(
+        leased.job.payload,
+        this.renderOptions,
+      );
       const result = await this.adapter.execute(
         buffer,
         this.configuration,

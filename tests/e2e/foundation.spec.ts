@@ -96,6 +96,16 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
 
     await window.getByTestId("manual-printer-settings").click();
     await window
+      .getByTestId("printer-transport")
+      .selectOption("windows_spooler");
+    await expect(window.getByTestId("windows-printer-select")).toBeVisible();
+    await expect(
+      window
+        .getByTestId("printer-configuration")
+        .locator("input[name='host']"),
+    ).toBeHidden();
+    await window.getByTestId("printer-transport").selectOption("raw_tcp");
+    await window
       .getByTestId("printer-configuration")
       .locator("input[name='host']")
       .fill("192.168.1.42");
@@ -123,6 +133,9 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await expect(
       window.getByTestId("printer-details-form").locator("input[name='host']"),
     ).toHaveValue("192.168.1.42");
+    await expect(window.getByTestId("printer-details-transport")).toHaveValue(
+      "raw_tcp",
+    );
     await expect(
       window.locator("input[name='bonLayoutProfile'][value='compact']"),
     ).toBeChecked();

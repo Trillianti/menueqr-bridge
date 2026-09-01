@@ -17,6 +17,7 @@ export const BRIDGE_FOUNDATION_CHANNELS = {
   activatePrinterConfiguration: "bridge:printer:activate-configuration",
   testPrinterConnection: "bridge:printer:test-connection",
   testPrinterPrint: "bridge:printer:test-print",
+  listWindowsPrinters: "bridge:printer:list-windows",
   discoverPrinters: "bridge:printer:discover",
   selectDiscoveredPrinter: "bridge:printer:select-discovered",
   testDiscoveredPrinter: "bridge:printer:test-discovered",

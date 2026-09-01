@@ -25,8 +25,12 @@ import { AdapterConfigurationStore } from "../integrations/adapter-config-store"
 import {
   StarTsp1000LanAdapter,
   type StarTsp1000LanConfiguration,
+  type WindowsPrinterSummary,
 } from "../integrations/printers/star-tsp1000-lan/star-tsp1000-lan";
-import type { BonLayoutProfile } from "../integrations/kitchen-bon";
+import {
+  type BonLayoutProfile,
+  renderKitchenBonText,
+} from "../integrations/kitchen-bon";
 import { LocalAdapterConfigFileStore } from "./local-adapter-config-store";
 import type { DiagnosticLogEvent } from "./diagnostic-log";
 import { LocalPrinterHealthStore } from "./local-printer-health-store";
@@ -68,6 +72,13 @@ export type PrinterHealthTransition = {
   current: AdapterHealth;
 };
 
+type LocalPrinterAdapter = IntegrationAdapter<
+  StarTsp1000LanConfiguration,
+  Uint8Array
+> & {
+  listWindowsPrinters?(): Promise<readonly WindowsPrinterSummary[]>;
+};
+
 export class KitchenRouteService implements JobExecutionPort {
   private readonly configurations: AdapterConfigurationStore;
   private readonly ledger: ExecutionLedger;
@@ -88,10 +99,7 @@ export class KitchenRouteService implements JobExecutionPort {
     ledgerPath: string,
     private readonly completion: JobCompletionClient,
     private readonly log?: (event: DiagnosticLogEvent) => void | Promise<void>,
-    private readonly adapter: IntegrationAdapter<
-      StarTsp1000LanConfiguration,
-      Uint8Array
-    > = new StarTsp1000LanAdapter(),
+    private readonly adapter: LocalPrinterAdapter = new StarTsp1000LanAdapter(),
   ) {
     this.configurations = new AdapterConfigurationStore(
       new LocalAdapterConfigFileStore(configurationPath),
@@ -183,6 +191,10 @@ export class KitchenRouteService implements JobExecutionPort {
       state: health.status,
     });
     return health;
+  }
+
+  async listWindowsPrinters(): Promise<readonly WindowsPrinterSummary[]> {
+    return this.adapter.listWindowsPrinters?.() ?? [];
   }
 
   async testPrint(
@@ -414,6 +426,10 @@ export class KitchenRouteService implements JobExecutionPort {
       },
       this.ledger,
       this.completion,
+      configuration.transport === "windows_spooler"
+        ? (payload, options) =>
+            Buffer.from(renderKitchenBonText(payload, options), "utf8")
+        : undefined,
     );
     const outcome = await executor.handoff(credential, leased, signal);
     if (outcome.kind === "succeeded") {
@@ -422,8 +438,14 @@ export class KitchenRouteService implements JobExecutionPort {
           snapshot.activePrinterId,
           {
             status: "ready",
-            code: "PRINT_WRITTEN",
-            message: "The most recent printer write completed.",
+            code:
+              configuration.transport === "windows_spooler"
+                ? "WINDOWS_PRINT_JOB_ACCEPTED"
+                : "PRINT_WRITTEN",
+            message:
+              configuration.transport === "windows_spooler"
+                ? "Windows accepted the most recent print job."
+                : "The most recent printer write completed.",
             checkedAt: new Date().toISOString(),
           },
           false,

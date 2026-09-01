@@ -16,7 +16,7 @@ describe("kitchen route service", () => {
   ): IntegrationAdapter<any, Uint8Array> {
     return {
       id: "printer.star-tsp1000-lan",
-      version: 1,
+      version: 2,
       capabilities: ["printer.kitchen"],
       supportedJobSchemas: [1],
       validateConfiguration(value: unknown) {
@@ -24,6 +24,8 @@ describe("kitchen route service", () => {
         if (!input.host || !input.port)
           throw new Error("INVALID_CONFIGURATION");
         return {
+          transport: input.transport ?? "raw_tcp",
+          windowsPrinterName: input.windowsPrinterName ?? null,
           host: input.host,
           port: input.port,
           commandMode: input.commandMode ?? "star_line",
@@ -72,6 +74,8 @@ describe("kitchen route service", () => {
   }
 
   const configuration = {
+    transport: "raw_tcp" as const,
+    windowsPrinterName: null,
     host: "192.168.1.30",
     port: 9100,
     commandMode: "star_line" as const,

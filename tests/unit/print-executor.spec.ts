@@ -156,4 +156,47 @@ describe("print executor", () => {
       expect.any(AbortSignal),
     );
   });
+
+  it("supports an adapter-specific text renderer for Windows printing", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "menuqr-bridge-text-"));
+    const adapter = {
+      id: "windows-test",
+      version: 1,
+      capabilities: ["printer.kitchen"] as const,
+      supportedJobSchemas: [1] as const,
+      validateConfiguration: (value: unknown) => value as {},
+      redactConfiguration: () => ({}),
+      healthCheck: jest.fn(),
+      execute: jest.fn().mockResolvedValue({
+        status: "succeeded",
+        code: "WINDOWS_PRINT_JOB_ACCEPTED",
+        message: "accepted",
+      }),
+    };
+    const completion = {
+      acknowledge: jest.fn().mockResolvedValue(undefined),
+      fail: jest.fn().mockResolvedValue(undefined),
+    };
+    const renderer = jest.fn(() => Buffer.from("TISCH 7\r\n", "utf8"));
+    const executor = new PrintExecutor(
+      adapter,
+      {},
+      {
+        commandMode: "star_line",
+        paperWidthMm: 80,
+        encoding: "cp437",
+        cutAfterPrint: true,
+      },
+      new ExecutionLedger(join(directory, "ledger.json")),
+      completion,
+      renderer,
+    );
+    await executor.handoff(credential, job, new AbortController().signal);
+    expect(renderer).toHaveBeenCalledWith(job.job.payload, expect.any(Object));
+    expect(adapter.execute).toHaveBeenCalledWith(
+      Buffer.from("TISCH 7\r\n", "utf8"),
+      {},
+      expect.any(AbortSignal),
+    );
+  });
 });

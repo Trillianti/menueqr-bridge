@@ -29,10 +29,12 @@ import { DiagnosticLog } from "./diagnostic-log";
 import { DiagnosticsService } from "./diagnostics-service";
 import { DeviceFingerprintStore } from "./device-fingerprint-store";
 import { KitchenRouteService } from "./kitchen-route-service";
+import { StarTsp1000LanAdapter } from "../integrations/printers/star-tsp1000-lan/star-tsp1000-lan";
 import { HttpPairingApi } from "./pairing-api";
 import { DesktopPairingService } from "./pairing-service";
 import { credentialPath, SafeCredentialStore } from "./safe-credential-store";
 import { BridgeUpdateService } from "./update-service";
+import { PowerShellWindowsPrinterSpooler } from "./windows-printer-spooler";
 import {
   createShellSnapshot,
   isInstallerOrUpdaterLaunch,
@@ -360,6 +362,13 @@ function registerIpc(
       );
     },
   );
+  ipcMain.handle(
+    BRIDGE_FOUNDATION_CHANNELS.listWindowsPrinters,
+    async (event) => {
+      assertSettingsSender(event.sender.id);
+      return route.listWindowsPrinters();
+    },
+  );
   ipcMain.handle(BRIDGE_FOUNDATION_CHANNELS.discoverPrinters, async (event) => {
     assertSettingsSender(event.sender.id);
     return route.discoverLocalPrinters(new AbortController().signal);
@@ -550,6 +559,9 @@ if (!app.requestSingleInstanceLock()) {
       join(app.getPath("userData"), "runtime", "execution-ledger.json"),
       pairingApi,
       (event) => logs.append(event),
+      StarTsp1000LanAdapter.withWindowsSpooler(
+        new PowerShellWindowsPrinterSpooler(),
+      ),
     );
     route.setHealthTransitionListener((transition) => {
       if (

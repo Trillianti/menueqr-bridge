@@ -138,20 +138,35 @@ export function renderKitchenBonLines(
 }
 
 export function createStaticTestBon(options: BonRenderOptions): Buffer {
-  const lines = [
+  const lines = staticTestBonLines(options);
+  const content = encodeLines(lines, options.encoding);
+  return options.commandMode === "esc_pos"
+    ? wrapEscPos(content, options.cutAfterPrint)
+    : wrapStarLine(content, options.cutAfterPrint);
+}
+
+export function createStaticTestBonText(options: BonRenderOptions): string {
+  return `${staticTestBonLines(options).join("\r\n")}\r\n`;
+}
+
+export function renderKitchenBonText(
+  payload: unknown,
+  options: BonRenderOptions,
+): string {
+  return `${renderKitchenBonLines(payload, options).join("\r\n")}\r\n`;
+}
+
+function staticTestBonLines(options: BonRenderOptions): string[] {
+  return [
     "MENÜQR BRIDGE TEST",
     "DIESER DRUCKER",
     "IST MIT MENÜQR VERBUNDEN",
-    `MODE: ${options.commandMode.toUpperCase()}`,
+    "TESTDRUCK",
     `WIDTH: ${options.paperWidthMm}MM`,
     "ÄÖÜ äöü ß",
     new Date(0).toISOString(),
     "",
   ].map((line) => printableText(line, options.encoding));
-  const content = encodeLines(lines, options.encoding);
-  return options.commandMode === "esc_pos"
-    ? wrapEscPos(content, options.cutAfterPrint)
-    : wrapStarLine(content, options.cutAfterPrint);
 }
 
 function documentLines(

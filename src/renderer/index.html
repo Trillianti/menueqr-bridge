@@ -299,6 +299,7 @@
       .printer-grid { display: grid; gap: 0.75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .field-full { grid-column: 1 / -1; }
       label { color: #625a52; display: grid; font-size: 0.8rem; font-weight: 650; gap: 0.35rem; }
+      .field-helper { color: #81776d; font-size: 0.74rem; font-weight: 500; line-height: 1.4; }
       input, select { background: #fffdfa; border: 1px solid #d8d0c6; border-radius: 0.65rem; color: #302b26; min-height: 2.55rem; padding: 0.45rem 0.6rem; }
       input:disabled, select:disabled { background: #f4f1ec; color: #968d84; }
       .check-label { align-items: center; display: flex; gap: 0.55rem; }
@@ -509,14 +510,16 @@ GESAMT:                  43,50 €
               <form data-testid="printer-configuration">
                 <fieldset data-testid="printer-fieldset">
                   <div class="printer-grid">
-                    <label>IP-Adresse oder Druckername<input name="host" required autocomplete="off" /></label>
-                    <label>Port<input name="port" type="number" value="9100" min="1" max="65535" required /></label>
-                    <label>Steuermodus<select name="commandMode"><option value="star_line">Star Line</option><option value="esc_pos">ESC/POS</option></select></label>
+                    <label class="field-full">Druckweg<select name="transport" data-testid="printer-transport"><option value="raw_tcp">Direkt über das Netzwerk</option><option value="windows_spooler">Über den installierten Windows-Drucker</option></select><span class="field-helper">Wenn die Windows-Testseite funktioniert, wählen Sie den installierten Windows-Drucker.</span></label>
+                    <label class="field-full" data-transport-field="windows" hidden>Installierter Windows-Drucker<select name="windowsPrinterName" data-testid="windows-printer-select"><option value="">Windows-Drucker werden geladen …</option></select></label>
+                    <label data-transport-field="network">IP-Adresse oder Druckername<input name="host" required autocomplete="off" /></label>
+                    <label data-transport-field="network">Port<input name="port" type="number" value="9100" min="1" max="65535" required /></label>
+                    <label data-transport-field="network">Steuermodus<select name="commandMode"><option value="star_line">Star Line</option><option value="esc_pos">ESC/POS</option></select></label>
                     <label>Papierbreite<select name="paperWidthMm"><option value="80">80 mm</option><option value="82">82 mm</option></select></label>
-                    <label>Zeichensatz<select name="encoding"><option value="cp437">CP437</option><option value="cp850">CP850</option><option value="windows1252">Windows-1252</option></select></label>
-                    <label>Verbindungszeit (ms)<input name="connectTimeoutMs" type="number" value="3000" min="250" max="30000" required /></label>
-                    <label>Schreibzeit (ms)<input name="writeTimeoutMs" type="number" value="5000" min="250" max="30000" required /></label>
-                    <label class="check-label field-full"><input name="cutAfterPrint" type="checkbox" checked /> Bon nach dem Druck abschneiden</label>
+                    <label data-transport-field="network">Zeichensatz<select name="encoding"><option value="cp437">CP437</option><option value="cp850">CP850</option><option value="windows1252">Windows-1252</option></select></label>
+                    <label data-transport-field="network">Verbindungszeit (ms)<input name="connectTimeoutMs" type="number" value="3000" min="250" max="30000" required /></label>
+                    <label data-transport-field="network">Schreibzeit (ms)<input name="writeTimeoutMs" type="number" value="5000" min="250" max="30000" required /></label>
+                    <label class="check-label field-full" data-transport-field="network"><input name="cutAfterPrint" type="checkbox" checked /> Bon nach dem Druck abschneiden</label>
                   </div>
                   <div class="actions" style="margin-top: 1rem">
                     <button type="submit" class="button-primary" data-testid="printer-save">Drucker speichern</button>
@@ -545,7 +548,7 @@ GESAMT:                  43,50 €
         </article>
         <article class="printer-details-card" data-testid="printer-details-card" hidden>
           <header class="printer-details-header">
-            <div><button type="button" class="button-link printer-setup-back" data-testid="printer-details-back">← Zurück zu Druckern</button><h2>Star TSP1000 LAN</h2><p>Verbindung und Druckparameter dieses Geräts.</p></div>
+            <div><button type="button" class="button-link printer-setup-back" data-testid="printer-details-back">← Zurück zu Druckern</button><h2>Star TSP1000</h2><p>Verbindung und Druckparameter dieses Geräts.</p></div>
           </header>
           <section class="printer-details-overview" aria-label="Druckerstatus">
             <span class="saved-printer-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V4h12v5M6 18h12v2H6z"/><path d="M5 9h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2Z"/><path d="M17 13h.01"/></svg></span>
@@ -597,14 +600,16 @@ GESAMT:                  43,50 €
                 </div>
               </section>
               <div class="printer-grid">
-                <label>IP-Adresse oder Druckername<input name="host" required autocomplete="off" /></label>
-                <label>Port<input name="port" type="number" min="1" max="65535" required /></label>
-                <label>Steuermodus<select name="commandMode"><option value="star_line">Star Line</option><option value="esc_pos">ESC/POS</option></select></label>
+                <label class="field-full">Druckweg<select name="transport" data-testid="printer-details-transport"><option value="raw_tcp">Direkt über das Netzwerk</option><option value="windows_spooler">Über den installierten Windows-Drucker</option></select><span class="field-helper">Wenn die Windows-Testseite funktioniert, wählen Sie den installierten Windows-Drucker.</span></label>
+                <label class="field-full" data-transport-field="windows" hidden>Installierter Windows-Drucker<select name="windowsPrinterName" data-testid="printer-details-windows-select"><option value="">Windows-Drucker werden geladen …</option></select></label>
+                <label data-transport-field="network">IP-Adresse oder Druckername<input name="host" required autocomplete="off" /></label>
+                <label data-transport-field="network">Port<input name="port" type="number" min="1" max="65535" required /></label>
+                <label data-transport-field="network">Steuermodus<select name="commandMode"><option value="star_line">Star Line</option><option value="esc_pos">ESC/POS</option></select></label>
                 <label>Papierbreite<select name="paperWidthMm"><option value="80">80 mm</option><option value="82">82 mm</option></select></label>
-                <label>Zeichensatz<select name="encoding"><option value="cp437">CP437</option><option value="cp850">CP850</option><option value="windows1252">Windows-1252</option></select></label>
-                <label>Verbindungszeit (ms)<input name="connectTimeoutMs" type="number" min="250" max="30000" required /></label>
-                <label>Schreibzeit (ms)<input name="writeTimeoutMs" type="number" min="250" max="30000" required /></label>
-                <label class="check-label field-full"><input name="cutAfterPrint" type="checkbox" /> Bon nach dem Druck abschneiden</label>
+                <label data-transport-field="network">Zeichensatz<select name="encoding"><option value="cp437">CP437</option><option value="cp850">CP850</option><option value="windows1252">Windows-1252</option></select></label>
+                <label data-transport-field="network">Verbindungszeit (ms)<input name="connectTimeoutMs" type="number" min="250" max="30000" required /></label>
+                <label data-transport-field="network">Schreibzeit (ms)<input name="writeTimeoutMs" type="number" min="250" max="30000" required /></label>
+                <label class="check-label field-full" data-transport-field="network"><input name="cutAfterPrint" type="checkbox" /> Bon nach dem Druck abschneiden</label>
               </div>
               <div class="printer-details-actions">
                 <button type="submit" class="button-primary" data-testid="printer-details-save">Änderungen speichern</button>

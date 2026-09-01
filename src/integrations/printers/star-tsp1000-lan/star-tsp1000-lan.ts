@@ -9,9 +9,31 @@ import type {
   AdapterHealth,
   IntegrationAdapter,
 } from "../../../contracts";
-import { createStaticTestBon, type BonLayoutProfile } from "../../kitchen-bon";
+import {
+  createStaticTestBon,
+  createStaticTestBonText,
+  type BonLayoutProfile,
+} from "../../kitchen-bon";
+
+export type WindowsPrinterSummary = {
+  name: string;
+  driverName: string;
+  portName: string;
+  status: string;
+};
+
+export type WindowsPrinterSpooler = {
+  listPrinters(): Promise<readonly WindowsPrinterSummary[]>;
+  printText(
+    printerName: string,
+    text: string,
+    signal: AbortSignal,
+  ): Promise<void>;
+};
 
 export type StarTsp1000LanConfiguration = {
+  transport: "raw_tcp" | "windows_spooler";
+  windowsPrinterName: string | null;
   host: string;
   port: number;
   commandMode: "star_line" | "esc_pos";
@@ -42,6 +64,8 @@ export type PrinterPortProbe = (
 ) => Promise<boolean>;
 
 const DEFAULTS: StarTsp1000LanConfiguration = {
+  transport: "raw_tcp",
+  windowsPrinterName: null,
   host: "",
   port: 9100,
   commandMode: "star_line",
@@ -71,7 +95,7 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
   Uint8Array
 > {
   readonly id = "printer.star-tsp1000-lan";
-  readonly version = 1;
+  readonly version = 2;
   readonly capabilities = ["printer.kitchen"] as const;
   readonly supportedJobSchemas = [1] as const;
 
@@ -83,13 +107,46 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
     private readonly getNetworkInterfaces: NetworkInterfacesProvider = networkInterfaces,
     private readonly probePort: PrinterPortProbe = probePrinterPort,
     private readonly reverseDns: PrinterReverseDnsResolver = reverse,
+    private readonly windowsSpooler?: WindowsPrinterSpooler,
   ) {}
+
+  static withWindowsSpooler(
+    windowsSpooler: WindowsPrinterSpooler,
+  ): StarTsp1000LanAdapter {
+    return new StarTsp1000LanAdapter(
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      windowsSpooler,
+    );
+  }
+
+  migrateConfiguration(
+    value: unknown,
+    fromVersion: number,
+  ): StarTsp1000LanConfiguration | undefined {
+    if (fromVersion !== 1 || !value || typeof value !== "object")
+      return undefined;
+    return this.validateConfiguration({
+      ...(value as Record<string, unknown>),
+      transport: "raw_tcp",
+      windowsPrinterName: null,
+    });
+  }
 
   validateConfiguration(value: unknown): StarTsp1000LanConfiguration {
     if (!value || typeof value !== "object" || Array.isArray(value))
       throw new Error("INVALID_CONFIGURATION");
     const input = value as Partial<StarTsp1000LanConfiguration>;
     const config: StarTsp1000LanConfiguration = {
+      transport: input.transport ?? DEFAULTS.transport,
+      windowsPrinterName:
+        typeof input.windowsPrinterName === "string"
+          ? input.windowsPrinterName.trim()
+          : null,
       host:
         typeof input.host === "string" ? input.host.trim().toLowerCase() : "",
       port: input.port ?? DEFAULTS.port,
@@ -102,8 +159,12 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
       bonLayoutProfile: input.bonLayoutProfile ?? DEFAULTS.bonLayoutProfile,
     };
     if (
-      (!isAllowedLocalHost(config.host) &&
+      !["raw_tcp", "windows_spooler"].includes(config.transport) ||
+      (config.transport === "raw_tcp" &&
+        !isAllowedLocalHost(config.host) &&
         !(this.allowLoopbackForTest && isLoopbackHost(config.host))) ||
+      (config.transport === "windows_spooler" &&
+        !isSafeWindowsPrinterName(config.windowsPrinterName)) ||
       !Number.isInteger(config.port) ||
       config.port < 1 ||
       config.port > 65535 ||
@@ -125,7 +186,13 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
   ): Record<string, unknown> {
     const config = this.validateConfiguration(value);
     return {
-      hostFingerprint: fingerprintHost(config.host),
+      transport: config.transport,
+      hostFingerprint:
+        config.transport === "raw_tcp" ? fingerprintHost(config.host) : null,
+      windowsPrinterFingerprint:
+        config.transport === "windows_spooler"
+          ? fingerprintHost(config.windowsPrinterName ?? "")
+          : null,
       port: config.port,
       commandMode: config.commandMode,
       paperWidthMm: config.paperWidthMm,
@@ -141,7 +208,20 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
     configuration: StarTsp1000LanConfiguration,
   ): Promise<AdapterHealth> {
     try {
-      await this.connectAndClose(this.validateConfiguration(configuration));
+      const config = this.validateConfiguration(configuration);
+      if (config.transport === "windows_spooler") {
+        const available = (await this.listWindowsPrinters()).some(
+          (printer) => printer.name === config.windowsPrinterName,
+        );
+        if (!available) throw printerError("WINDOWS_PRINTER_NOT_FOUND");
+        return {
+          status: "ready",
+          code: "WINDOWS_PRINTER_READY",
+          message: "Installed Windows printer is available.",
+          checkedAt: new Date().toISOString(),
+        };
+      }
+      await this.connectAndClose(config);
       return {
         status: "ready",
         code: "TCP_READY",
@@ -176,6 +256,19 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
           code: "INVALID_PRINT_PAYLOAD",
           message: "Print payload is invalid.",
         };
+      if (config.transport === "windows_spooler") {
+        await this.requireWindowsSpooler().printText(
+          config.windowsPrinterName!,
+          Buffer.from(payload).toString("utf8"),
+          signal,
+        );
+        return {
+          status: "succeeded",
+          code: "WINDOWS_PRINT_JOB_ACCEPTED",
+          message: "Windows accepted the print job.",
+          metadata: { transport: "windows_spooler" },
+        };
+      }
       await this.writeBuffer(config, Buffer.from(payload), signal);
       return {
         status: "succeeded",
@@ -198,7 +291,10 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
 
   async test(configuration: StarTsp1000LanConfiguration, signal: AbortSignal) {
     const config = this.validateConfiguration(configuration);
-    const payload = createStaticTestBon(config);
+    const payload =
+      config.transport === "windows_spooler"
+        ? Buffer.from(createStaticTestBonText(config), "utf8")
+        : createStaticTestBon(config);
     const result = await this.execute(payload, config, signal);
     return {
       status: result.status,
@@ -235,6 +331,15 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
       }),
     );
     return candidates.sort((left, right) => compareIpv4(left.host, right.host));
+  }
+
+  async listWindowsPrinters(): Promise<readonly WindowsPrinterSummary[]> {
+    return this.windowsSpooler?.listPrinters() ?? [];
+  }
+
+  private requireWindowsSpooler(): WindowsPrinterSpooler {
+    if (!this.windowsSpooler) throw printerError("WINDOWS_SPOOLER_UNAVAILABLE");
+    return this.windowsSpooler;
   }
 
   private async discoveredPrinterName(host: string): Promise<string> {
@@ -457,6 +562,18 @@ export function fingerprintHost(host: string): string {
   return createHash("sha256").update(host).digest("hex").slice(0, 16);
 }
 
+function isSafeWindowsPrinterName(value: string | null): value is string {
+  return Boolean(
+    value &&
+      value.length <= 256 &&
+      !/[\u0000-\u001f\u007f]/.test(value),
+  );
+}
+
+function printerError(code: string): Error & { code: string } {
+  return Object.assign(new Error(code), { code });
+}
+
 export function normalizeSocketError(error: unknown): string {
   if (error instanceof Error && error.message === "CANCELED") return "CANCELED";
   const code =
@@ -469,6 +586,19 @@ export function normalizeSocketError(error: unknown): string {
   if (code === "ECONNRESET") return "SOCKET_RESET";
   if (code === "ENOTFOUND" || code === "EHOSTUNREACH" || code === "ENETUNREACH")
     return "NETWORK_UNAVAILABLE";
+  if (
+    code === "WINDOWS_SPOOLER_UNAVAILABLE" ||
+    code === "WINDOWS_PRINTER_NOT_FOUND" ||
+    code === "WINDOWS_PRINT_FAILED"
+  )
+    return code;
+  if (
+    code === "WINDOWS_POWERSHELL_FAILED" ||
+    code === "WINDOWS_PRINTER_LIST_INVALID" ||
+    code === "WINDOWS_SPOOLER_TIMEOUT" ||
+    code === "WINDOWS_SPOOLER_OUTPUT_TOO_LARGE"
+  )
+    return "WINDOWS_SPOOLER_UNAVAILABLE";
   if (error instanceof Error && error.message === "INVALID_CONFIGURATION")
     return "INVALID_CONFIGURATION";
   return "SOCKET_WRITE_FAILED";
@@ -485,6 +615,9 @@ function healthMessage(code: string): string {
         NETWORK_UNAVAILABLE: "Printer network is unavailable.",
         CANCELED: "Printer request was canceled.",
         INVALID_CONFIGURATION: "Printer configuration is invalid.",
+        WINDOWS_SPOOLER_UNAVAILABLE: "Windows printing is unavailable.",
+        WINDOWS_PRINTER_NOT_FOUND: "The selected Windows printer is not installed.",
+        WINDOWS_PRINT_FAILED: "Windows could not accept the print job.",
         SOCKET_WRITE_FAILED: "Printer write failed.",
       } as Record<string, string>
     )[code] ?? "Printer connection failed."
