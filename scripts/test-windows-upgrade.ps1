@@ -9,7 +9,7 @@ if ($currentInstaller.Count -ne 1) {
 }
 $expectedVersion = (Get-Content "package.json" -Raw | ConvertFrom-Json).version
 $productName = "MenüQR Bridge"
-$installDirectory = Join-Path $env:LOCALAPPDATA "Programs\$productName"
+$actualInstallDirectory = $null
 $applicationData = Join-Path $env:APPDATA $productName
 $localApplicationData = Join-Path $env:LOCALAPPDATA $productName
 $sentinel = Join-Path $applicationData "runtime\upgrade-preservation-sentinel.txt"
@@ -42,18 +42,28 @@ try {
   if ($preservedRunValue -ne $runSentinel) {
     throw "Bridge autostart value was not preserved during update."
   }
-  $installedVersion = (Get-ItemProperty -Path $uninstallKey -Name DisplayVersion).DisplayVersion
+  $installedRegistration = Get-ItemProperty -Path $uninstallKey
+  $installedVersion = $installedRegistration.DisplayVersion
   if ($installedVersion -ne $expectedVersion) {
     throw "Expected installed version $expectedVersion, received $installedVersion."
   }
-  if (-not (Test-Path (Join-Path $installDirectory "$productName.exe"))) {
+  $actualInstallDirectory = $installedRegistration.InstallLocation
+  if (
+    -not $actualInstallDirectory -or
+    -not (Test-Path (Join-Path $actualInstallDirectory "$productName.exe"))
+  ) {
     throw "Updated Bridge executable is missing."
   }
   Write-Output "Verified Bridge $legacyVersion -> $expectedVersion update with preserved userData and autostart."
 }
 finally {
   & "$env:SystemRoot\System32\taskkill.exe" /F /IM "$productName.exe" 2>$null | Out-Null
-  Remove-Item -Path $installDirectory -Recurse -Force -ErrorAction SilentlyContinue
+  if (-not $actualInstallDirectory -and (Test-Path $uninstallKey)) {
+    $actualInstallDirectory = (Get-ItemProperty -Path $uninstallKey).InstallLocation
+  }
+  if ($actualInstallDirectory) {
+    Remove-Item -Path $actualInstallDirectory -Recurse -Force -ErrorAction SilentlyContinue
+  }
   Remove-Item -Path $applicationData -Recurse -Force -ErrorAction SilentlyContinue
   Remove-Item -Path $localApplicationData -Recurse -Force -ErrorAction SilentlyContinue
   Remove-Item -Path $uninstallKey -Recurse -Force -ErrorAction SilentlyContinue
