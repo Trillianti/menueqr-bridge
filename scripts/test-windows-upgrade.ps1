@@ -48,6 +48,18 @@ try {
     throw "Expected installed version $expectedVersion, received $installedVersion."
   }
   $actualInstallDirectory = $installedRegistration.InstallLocation
+  Write-Output "Installed Bridge path: $actualInstallDirectory"
+  if ($actualInstallDirectory -and (Test-Path $actualInstallDirectory)) {
+    Get-ChildItem -Path $actualInstallDirectory -Force |
+      Select-Object -ExpandProperty FullName |
+      Write-Output
+    $resourcesDirectory = Join-Path $actualInstallDirectory "resources"
+    if (Test-Path $resourcesDirectory) {
+      Get-ChildItem -Path $resourcesDirectory -Force |
+        Select-Object -ExpandProperty FullName |
+        Write-Output
+    }
+  }
   if (
     -not $actualInstallDirectory -or
     -not (Test-Path (Join-Path $actualInstallDirectory "resources\app.asar"))
