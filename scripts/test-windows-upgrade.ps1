@@ -50,9 +50,9 @@ try {
   $actualInstallDirectory = $installedRegistration.InstallLocation
   if (
     -not $actualInstallDirectory -or
-    -not (Test-Path (Join-Path $actualInstallDirectory "$productName.exe"))
+    -not (Test-Path (Join-Path $actualInstallDirectory "resources\app.asar"))
   ) {
-    throw "Updated Bridge executable is missing."
+    throw "Updated Bridge application files are missing from InstallLocation."
   }
   Write-Output "Verified Bridge $legacyVersion -> $expectedVersion update with preserved userData and autostart."
 }
