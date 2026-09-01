@@ -50,4 +50,18 @@ describe("Windows installer configuration", () => {
     expect(installerScript).toContain("Lokale MenüQR Bridge-Einstellungen");
     expect(installerScript).toContain("DeleteRegValue HKCU");
   });
+
+  it("force-stops every Bridge image before replacing files without elevation", () => {
+    expect(installerScript).toMatch(
+      /!macro customInit[\s\S]*Call StopRunningMenuQrBridge[\s\S]*!macroend/,
+    );
+    expect(installerScript).toContain(
+      'taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}"',
+    );
+    expect(installerScript).toContain("IntCmp $0 5");
+    expect(installerScript).not.toMatch(/taskkill[^\r\n]*\s\/T(?:\s|$)/i);
+    expect(builderConfig).toContain("perMachine: false");
+    expect(builderConfig).toContain("allowElevation: false");
+    expect(builderConfig).toContain("deleteAppDataOnUninstall: false");
+  });
 });

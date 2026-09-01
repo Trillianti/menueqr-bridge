@@ -7,6 +7,29 @@
   Var /GLOBAL BridgeAutostartEnabled
   Var /GLOBAL BridgeLaunchTarget
 
+!macro customInit
+  Call StopRunningMenuQrBridge
+!macroend
+
+Function StopRunningMenuQrBridge
+  # Every Electron main/renderer/GPU process uses the exact application image
+  # name. Retry a few times so an older Bridge build cannot keep installation
+  # files locked while it is still shutting down.
+  #
+  # Do not recursively terminate the process tree here: during an in-app update
+  # the installer can be a descendant of Bridge and could otherwise terminate
+  # itself before replacing the application files.
+  StrCpy $0 0
+  stopBridgeProcesses:
+    nsExec::ExecToStack '"$SYSDIR\taskkill.exe" /F /IM "${APP_EXECUTABLE_FILENAME}"'
+    Pop $1
+    Pop $2
+    Sleep 350
+    IntOp $0 $0 + 1
+    IntCmp $0 5 stopBridgeProcessesDone stopBridgeProcesses stopBridgeProcessesDone
+  stopBridgeProcessesDone:
+FunctionEnd
+
 !macro customPageAfterChangeDir
   Page custom BridgeAutostartPage BridgeAutostartPageLeave
 !macroend

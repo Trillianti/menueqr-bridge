@@ -113,6 +113,11 @@ administrator privileges. Updates replace application files only; pairing,
 encrypted credentials, printer profiles, the deduplication ledger, and bounded
 diagnostics remain in Electron's stable user-data directory.
 
+Before an installer or in-app update replaces files, the NSIS bootstrap closes
+all remaining MenüQR Bridge Electron processes by their exact executable name
+and waits for file handles to be released. It does not terminate unrelated
+process trees and does not require administrator privileges.
+
 After approval, the release workflow will submit its GitHub-hosted build to
 SignPath with origin verification before publishing it. The governing policy is
 [CODE_SIGNING_POLICY.md](CODE_SIGNING_POLICY.md).
