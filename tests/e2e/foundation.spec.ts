@@ -1,5 +1,5 @@
 import { expect, test, _electron as electron } from "@playwright/test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -225,6 +225,60 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await expect(window.getByTestId("saved-printer-address")).toContainText(
       "192.168.1.43:9100",
     );
+  } finally {
+    await application.close();
+    await rm(userData, { recursive: true, force: true });
+  }
+});
+
+test("shows a focused revoked-device screen instead of printer setup noise", async () => {
+  const userData = await mkdtemp(join(tmpdir(), "menuqr-bridge-revoked-e2e-"));
+  const runtimeDirectory = join(userData, "runtime");
+  await mkdir(runtimeDirectory, { recursive: true });
+  await writeFile(
+    join(runtimeDirectory, "runtime-state.json"),
+    JSON.stringify({
+      paused: false,
+      lastState: {
+        kind: "revoked",
+        code: "REVOKED",
+        message: "Device revoked",
+        updatedAt: "2026-09-01T12:00:00.000Z",
+      },
+      recentJobIds: [],
+      recentErrorCodes: [],
+      recentFailedJobIds: [],
+    }),
+  );
+  const application = await electron.launch({
+    args: [join(__dirname, "../../dist/main/index.js")],
+    env: {
+      ...process.env,
+      BRIDGE_E2E: "1",
+      BRIDGE_E2E_DATA_DIR: userData,
+    },
+  });
+
+  try {
+    const window = await application.firstWindow();
+    await expect(window.locator("body")).toHaveAttribute(
+      "data-setup-mode",
+      "revoked",
+    );
+    await expect(window.getByTestId("first-run-title")).toHaveText(
+      "Dieses Gerät wurde getrennt",
+    );
+    await expect(window.getByTestId("first-run-description")).toContainText(
+      "empfängt und druckt keine neuen Bestellungen mehr",
+    );
+    await expect(window.getByTestId("first-run-status-copy")).toHaveText(
+      "Status: Nicht mit einem Restaurant verbunden",
+    );
+    await expect(window.getByTestId("hero-pairing-start")).toHaveText(
+      "Erneut mit Restaurant verbinden",
+    );
+    await expect(window.getByTestId("integrations-list")).toBeHidden();
+    await expect(window.getByTestId("service-status")).toBeHidden();
   } finally {
     await application.close();
     await rm(userData, { recursive: true, force: true });

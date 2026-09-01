@@ -7,6 +7,7 @@ import type { PairingApi } from "./pairing-service";
 import type {
   BridgeRuntimeClient,
   RuntimePollResult,
+  RuntimeSessionWatchResult,
 } from "../core/bridge-runtime";
 import type { BridgeCredential } from "../core/credential-store";
 import type { PrinterSupportRequest } from "./pairing-service";
@@ -94,6 +95,26 @@ export class HttpPairingApi implements PairingApi, BridgeRuntimeClient {
       headers: { authorization: `Bearer ${credential.token}` },
       signal,
     });
+  }
+
+  async watchSession(
+    credential: BridgeCredential,
+    signal: AbortSignal,
+  ): Promise<RuntimeSessionWatchResult> {
+    try {
+      return await this.request("/bridge/v1/session/watch?waitSeconds=25", {
+        headers: { authorization: `Bearer ${credential.token}` },
+        signal,
+      });
+    } catch (error) {
+      if (
+        error instanceof BridgeApiError &&
+        error.code === "BRIDGE_DEVICE_REVOKED"
+      ) {
+        return { kind: "revoked", message: error.message };
+      }
+      throw error;
+    }
   }
 
   async acknowledge(

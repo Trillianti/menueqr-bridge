@@ -219,6 +219,15 @@ const pairingButton = requiredElement<HTMLButtonElement>(
 const heroPairingButton = requiredElement<HTMLButtonElement>(
   "[data-testid='hero-pairing-start']",
 );
+const firstRunTitle = requiredElement<HTMLElement>(
+  "[data-testid='first-run-title']",
+);
+const firstRunDescription = requiredElement<HTMLElement>(
+  "[data-testid='first-run-description']",
+);
+const firstRunStatusCopy = requiredElement<HTMLElement>(
+  "[data-testid='first-run-status-copy']",
+);
 const heroPairingCard = requiredElement<HTMLElement>(
   "[data-testid='pairing-hero-card']",
 );
@@ -813,8 +822,27 @@ function renderSetupSummary(): void {
   const paired = isPaired();
   const configured = printerSnapshot?.configured === true;
   const runtimeReady = deviceRuntimeSnapshot?.kind === "ready";
+  const revoked =
+    pairingSnapshot?.kind === "revoked" ||
+    (deviceRuntimeSnapshot?.kind === "revoked" &&
+      (!pairingSnapshot || pairingSnapshot.kind === "unpaired"));
 
-  document.body.dataset.setupMode = paired
+  firstRunTitle.textContent = revoked
+    ? "Dieses Gerät wurde getrennt"
+    : "Willkommen bei MenüQR Bridge";
+  firstRunDescription.textContent = revoked
+    ? "Der Zugriff wurde in MenüQR widerrufen. Dieser Computer empfängt und druckt keine neuen Bestellungen mehr."
+    : "Diese App verbindet diesen Computer mit Ihrem Restaurant, damit Bestellungen automatisch in Ihrer Küche gedruckt werden.";
+  firstRunStatusCopy.textContent = revoked
+    ? "Status: Nicht mit einem Restaurant verbunden"
+    : "Erster Schritt: Verbinden Sie Ihr Restaurant.";
+  heroPairingButton.textContent = revoked
+    ? "Erneut mit Restaurant verbinden"
+    : "Mit Restaurant verbinden";
+
+  document.body.dataset.setupMode = revoked
+    ? "revoked"
+    : paired
     ? "connected"
     : pairingSnapshot?.kind === "waiting_for_approval" ||
         pairingSnapshot?.kind === "slow_down"
@@ -841,6 +869,17 @@ function renderSetupSummary(): void {
     !selectedDiscoveredPrinter() || !discoveryTestSucceeded;
   printerSaveButton.disabled = false;
   renderPrinterWorkspace();
+
+  if (revoked) {
+    setFoundationStatus("Gerät getrennt", "danger");
+    onboardingTitle.textContent = "Dieses Gerät wurde getrennt";
+    onboardingDescription.textContent =
+      "Verbinden Sie es erneut, wenn dieser Computer wieder Küchenbons empfangen soll.";
+    serviceStatus.dataset.state = "attention";
+    serviceStatusCopy.textContent =
+      "Die lokale Druckerkonfiguration bleibt gespeichert.";
+    return;
+  }
 
   if (!paired && !configured) {
     setFoundationStatus("Einrichtung offen", "attention");

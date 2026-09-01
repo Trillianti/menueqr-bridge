@@ -25,6 +25,10 @@ export type RuntimePollResult =
   | { kind: "timeout"; retryAfterMs: number }
   | { kind: "update_required"; code: string; message: string };
 
+export type RuntimeSessionWatchResult =
+  | { kind: "active"; retryAfterMs: number }
+  | { kind: "revoked"; message: string };
+
 export type BridgeRuntimeClient = {
   heartbeat(
     credential: BridgeCredential,
@@ -35,6 +39,10 @@ export type BridgeRuntimeClient = {
     credential: BridgeCredential,
     signal: AbortSignal,
   ): Promise<RuntimePollResult>;
+  watchSession?(
+    credential: BridgeCredential,
+    signal: AbortSignal,
+  ): Promise<RuntimeSessionWatchResult>;
 };
 
 export type JobExecutionPort = {
@@ -80,6 +88,7 @@ export class BridgeRuntime {
   private readonly backgroundTasks = new Set<Promise<void>>();
   private pendingPersistence: Promise<void> = Promise.resolve();
   private paused = false;
+  private revocationHandled = false;
   private persisted: StoredRuntimeState = {
     paused: false,
     lastState: null,
@@ -138,16 +147,24 @@ export class BridgeRuntime {
   async start(
     credential: BridgeCredential | null,
   ): Promise<DesktopRuntimeState> {
-    if (!credential) return this.transition("stopped");
+    if (!credential) {
+      return this.state.kind === "revoked"
+        ? this.state
+        : this.transition("stopped");
+    }
     if (this.paused) return this.transition("paused");
     if (this.isRunning()) {
       if (this.state.kind !== "fatal_configuration_error") return this.state;
       this.stop();
     }
     this.controller = new AbortController();
+    this.revocationHandled = false;
     this.transition("starting");
     this.track(this.heartbeatLoop(credential, this.controller.signal));
     this.track(this.pollLoop(credential, this.controller.signal));
+    if (this.client.watchSession) {
+      this.track(this.sessionWatchLoop(credential, this.controller.signal));
+    }
     return this.state;
   }
 
@@ -186,13 +203,14 @@ export class BridgeRuntime {
     signal: AbortSignal,
   ): Promise<void> {
     let intervalSeconds = this.options.heartbeatFallbackSeconds;
-    while (!signal.aborted && this.canPoll()) {
+    while (!signal.aborted && this.canCheckAuthorization()) {
       try {
         const response = await this.client.heartbeat(
           credential,
           await this.heartbeatRequest(),
           signal,
         );
+        if (signal.aborted) return;
         intervalSeconds = Math.min(
           response.heartbeatIntervalSeconds || intervalSeconds,
           MAX_AUTHORIZATION_CHECK_INTERVAL_SECONDS,
@@ -265,6 +283,45 @@ export class BridgeRuntime {
         );
         if (!waited) return;
         retryMs = Math.min(60_000, retryMs * 2);
+      }
+    }
+  }
+
+  private async sessionWatchLoop(
+    credential: BridgeCredential,
+    signal: AbortSignal,
+  ): Promise<void> {
+    let retryMs = 1_000;
+    while (!signal.aborted && this.canCheckAuthorization()) {
+      try {
+        const result = await this.client.watchSession!(credential, signal);
+        if (signal.aborted) return;
+        if (result.kind === "revoked") {
+          await this.handleRevocation(result.message);
+          return;
+        }
+        retryMs = 1_000;
+        if (result.retryAfterMs > 0) {
+          const continued = await (this.options.wait ?? waitFor)(
+            result.retryAfterMs,
+            signal,
+          );
+          if (!continued) return;
+        }
+      } catch (error) {
+        if (signal.aborted) return;
+        void this.options.log?.({
+          event: "session.watch_failed",
+          code: "SESSION_WATCH_UNAVAILABLE",
+          message: redactedError(error),
+          state: "retrying",
+        });
+        const continued = await (this.options.wait ?? waitFor)(
+          jitter(retryMs),
+          signal,
+        );
+        if (!continued) return;
+        retryMs = Math.min(30_000, retryMs * 2);
       }
     }
   }
@@ -367,18 +424,7 @@ export class BridgeRuntime {
       return false;
     }
     if (response.runtime.kind === "revoked") {
-      this.transition("revoked", "REVOKED", response.runtime.message);
-      this.stop();
-      try {
-        await this.options.onRevoked?.();
-      } catch (error) {
-        void this.options.log?.({
-          event: "pairing.revoked_cleanup_failed",
-          code: "CREDENTIAL_CLEAR_FAILED",
-          message: redactedError(error),
-          state: "revoked",
-        });
-      }
+      await this.handleRevocation(response.runtime.message);
       return false;
     }
     if (this.state.kind === "fatal_configuration_error") return true;
@@ -386,6 +432,23 @@ export class BridgeRuntime {
       response.runtime.kind === "degraded" ? "degraded" : "ready",
     );
     return true;
+  }
+
+  private async handleRevocation(message: string): Promise<void> {
+    if (this.revocationHandled) return;
+    this.revocationHandled = true;
+    this.transition("revoked", "REVOKED", message);
+    this.stop();
+    try {
+      await this.options.onRevoked?.();
+    } catch (error) {
+      void this.options.log?.({
+        event: "pairing.revoked_cleanup_failed",
+        code: "CREDENTIAL_CLEAR_FAILED",
+        message: redactedError(error),
+        state: "revoked",
+      });
+    }
   }
 
   private canPoll(): boolean {
@@ -398,6 +461,15 @@ export class BridgeRuntime {
         "authentication_error",
         "fatal_configuration_error",
       ].includes(this.state.kind)
+    );
+  }
+
+  private canCheckAuthorization(): boolean {
+    return (
+      !this.paused &&
+      !["feature_required", "update_required", "revoked"].includes(
+        this.state.kind,
+      )
     );
   }
   private transition(

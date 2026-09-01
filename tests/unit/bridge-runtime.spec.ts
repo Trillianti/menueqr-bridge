@@ -21,6 +21,7 @@ describe("bridge runtime", () => {
       nextJob: jest
         .fn()
         .mockResolvedValue({ kind: "timeout", retryAfterMs: 1 }),
+      watchSession: undefined as jest.Mock | undefined,
     };
     const store = {
       read: jest.fn().mockResolvedValue({
@@ -122,6 +123,43 @@ describe("bridge runtime", () => {
     expect(runtime.snapshot()).toMatchObject({ kind: "revoked", code: "REVOKED" });
     expect(runtime.isRunning()).toBe(false);
     expect(onRevoked).toHaveBeenCalledTimes(1);
+  });
+
+  it("disconnects immediately when the outbound session watch reports revocation", async () => {
+    const { runtime, client, onRevoked } = setup();
+    client.watchSession = jest.fn().mockResolvedValueOnce({
+      kind: "revoked",
+      message: "Device revoked",
+    });
+
+    await runtime.start(credential);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    expect(runtime.snapshot()).toMatchObject({ kind: "revoked", code: "REVOKED" });
+    expect(runtime.isRunning()).toBe(false);
+    expect(onRevoked).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the revoked state visible after restart when no credential remains", async () => {
+    const { runtime, store } = setup();
+    store.read.mockResolvedValueOnce({
+      paused: false,
+      lastState: {
+        kind: "revoked",
+        code: "REVOKED",
+        message: "Device revoked",
+        updatedAt: "2026-09-01T12:00:00.000Z",
+      },
+      recentJobIds: [],
+      recentErrorCodes: [],
+      recentFailedJobIds: [],
+    });
+
+    await runtime.restore();
+    await expect(runtime.start(null)).resolves.toMatchObject({
+      kind: "revoked",
+      code: "REVOKED",
+    });
   });
 
   it("hands a leased job to the fake execution port without printing", async () => {

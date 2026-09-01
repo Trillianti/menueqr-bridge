@@ -240,6 +240,9 @@
       .first-run-action > p { color: #706861; font-size: 0.92rem; line-height: 1.5; margin: -0.45rem auto 0; max-width: 33rem; }
       .first-run-step { align-items: center; color: #423b35; display: flex; font-size: 0.86rem; font-weight: 700; gap: 0.45rem; justify-content: center; }
       .first-run-step svg { color: #df5b24; height: 1.45rem; width: 1.45rem; }
+      body[data-setup-mode="revoked"] .first-run-step { background: #f7e3e0; border: 1px solid #efc6c0; border-radius: 0.9rem; color: #8f2f27; padding: 0.8rem 1rem; }
+      body[data-setup-mode="revoked"] .first-run-step svg { color: #a4362d; }
+      body[data-setup-mode="revoked"] .first-run-action .button-primary { background: #a4362d; box-shadow: 0 0.5rem 1rem rgb(164 54 45 / 18%); }
       .first-run-action .button-primary { justify-self: center; min-width: 0; width: min(100%, 22rem); }
       .pairing-hero-card { align-items: center; background: #fff; border: 1px solid #e5dfd7; border-radius: 1rem; box-shadow: 0 0.8rem 1.8rem rgb(60 44 30 / 8%); display: grid; gap: 0.8rem; grid-template-columns: 1.1fr 1.35fr 1fr; margin-top: 0.35rem; padding: 1rem 1.15rem; text-align: left; width: min(100%, 46rem); }
       .pairing-hero-card > * + * { border-left: 1px solid #ece7e0; padding-left: 1.2rem; }
@@ -262,7 +265,13 @@
       body[data-setup-mode="pairing"] .setup-grid,
       body[data-setup-mode="pairing"] .printer-setup-card,
       body[data-setup-mode="pairing"] .ready-panel,
-      body[data-setup-mode="pairing"] .system-settings { display: none; }
+      body[data-setup-mode="pairing"] .system-settings,
+      body[data-setup-mode="revoked"] .integration-overview,
+      body[data-setup-mode="revoked"] .app-header,
+      body[data-setup-mode="revoked"] .welcome,
+      body[data-setup-mode="revoked"] .setup-grid,
+      body[data-setup-mode="revoked"] .ready-panel,
+      body[data-setup-mode="revoked"] .system-settings { display: none; }
       body[data-setup-mode="first-run"] .setup-grid,
       body[data-setup-mode="pairing"] .setup-grid { grid-template-columns: 1fr; margin-top: 0; }
       body[data-setup-mode="first-run"] .pairing-card { display: none; }
@@ -280,9 +289,11 @@
       body[data-setup-mode="connected"][data-active-tab="printers"] .app-shell { width: min(100%, 92rem); }
       body[data-setup-mode="connected"][data-active-tab="printers"] .printer-workspace { grid-template-columns: minmax(0, 1fr); }
       body[data-setup-mode="first-run"] .app-shell,
-      body[data-setup-mode="pairing"] .app-shell { display: grid; min-height: 100dvh; padding-bottom: clamp(2rem, 6vh, 4rem); padding-top: clamp(2rem, 6vh, 4rem); place-items: center; }
+      body[data-setup-mode="pairing"] .app-shell,
+      body[data-setup-mode="revoked"] .app-shell { display: grid; min-height: 100dvh; padding-bottom: clamp(2rem, 6vh, 4rem); padding-top: clamp(2rem, 6vh, 4rem); place-items: center; }
       body[data-platform="mac"][data-setup-mode="first-run"] .app-shell,
-      body[data-platform="mac"][data-setup-mode="pairing"] .app-shell { min-height: calc(100dvh - 2.4rem); padding-top: clamp(3rem, 7vh, 5rem); }
+      body[data-platform="mac"][data-setup-mode="pairing"] .app-shell,
+      body[data-platform="mac"][data-setup-mode="revoked"] .app-shell { min-height: calc(100dvh - 2.4rem); padding-top: clamp(3rem, 7vh, 5rem); }
 
       .printer-candidates { display: grid; gap: 0.55rem; }
       .printer-candidate { align-items: center; background: #fff; border: 1px solid #ded7cd; display: flex; justify-content: space-between; text-align: left; width: 100%; }
@@ -389,9 +400,9 @@
 
       <section class="first-run-action" data-testid="first-run-action" aria-labelledby="first-run-title">
         <div class="first-run-brand"><img src="./brand-logo.svg" alt="MenüQR" /> <span>MenüQR Bridge</span></div>
-        <h2 id="first-run-title">Willkommen bei MenüQR Bridge</h2>
-        <p>Diese App verbindet diesen Computer mit Ihrem Restaurant, damit Bestellungen automatisch in Ihrer Küche gedruckt werden.</p>
-        <div class="first-run-step"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 12h18M12 3c2.3 2.5 3.5 5.5 3.5 9S14.3 18.5 12 21c-2.3-2.5-3.5-5.5-3.5-9S9.7 5.5 12 3Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>Erster Schritt: Verbinden Sie Ihr Restaurant.</div>
+        <h2 id="first-run-title" data-testid="first-run-title">Willkommen bei MenüQR Bridge</h2>
+        <p data-testid="first-run-description">Diese App verbindet diesen Computer mit Ihrem Restaurant, damit Bestellungen automatisch in Ihrer Küche gedruckt werden.</p>
+        <div class="first-run-step" data-testid="first-run-status"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 12h18M12 3c2.3 2.5 3.5 5.5 3.5 9S14.3 18.5 12 21c-2.3-2.5-3.5-5.5-3.5-9S9.7 5.5 12 3Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><span data-testid="first-run-status-copy">Erster Schritt: Verbinden Sie Ihr Restaurant.</span></div>
         <button type="button" class="button-primary" data-testid="hero-pairing-start">Mit Restaurant verbinden</button>
         <section class="pairing-hero-card" data-testid="pairing-hero-card" hidden>
           <div class="pairing-browser-copy"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M3 12h18M12 3c2.3 2.5 3.5 5.5 3.5 9S14.3 18.5 12 21c-2.3-2.5-3.5-5.5-3.5-9S9.7 5.5 12 3Z" fill="none" stroke="currentColor" stroke-width="1.5"/></svg><div><strong>Im Browser verbinden</strong><span>Bestätigen Sie den Code im geöffneten Browser.</span></div></div>

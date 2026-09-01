@@ -90,6 +90,18 @@ describe("pairing API client", () => {
         );
         return;
       }
+      if (request.url === "/bridge/v1/session/watch?waitSeconds=25") {
+        response.end(
+          JSON.stringify({
+            success: true,
+            data:
+              request.headers.authorization === "Bearer revoked-watch-token"
+                ? { kind: "revoked", message: "Device revoked" }
+                : { kind: "active", retryAfterMs: 0 },
+          }),
+        );
+        return;
+      }
       response.end(
         JSON.stringify({ success: true, data: { status: "revoked" } }),
       );
@@ -218,5 +230,30 @@ describe("pairing API client", () => {
         new AbortController().signal,
       ),
     ).resolves.toMatchObject({ runtime: { kind: "revoked" } });
+  });
+
+  it("keeps a long-lived outbound session watch for immediate revocation", async () => {
+    const client = new HttpPairingApi(baseUrl);
+    const signal = new AbortController().signal;
+    const credential = {
+      deviceId: "device_1",
+      token: "revoked-watch-token",
+      restaurant: { id: "restaurant_1", displayName: "Weingut Jäckel" },
+      issuedAt: "2026-08-22T12:00:00.000Z",
+      appVersion: "0.1.0",
+    };
+
+    await expect(client.watchSession(credential, signal)).resolves.toEqual({
+      kind: "revoked",
+      message: "Device revoked",
+    });
+    expect(requests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "/bridge/v1/session/watch?waitSeconds=25",
+          authorization: "Bearer revoked-watch-token",
+        }),
+      ]),
+    );
   });
 });
