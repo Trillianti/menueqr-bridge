@@ -63,6 +63,15 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     ).toHaveCount(0);
     await expect(window.getByTestId("printer-discover")).toBeVisible();
     await expect(window.getByTestId("setup-bon-layout")).toBeVisible();
+    const previewLines = await window
+      .getByTestId("setup-bon-layout")
+      .locator(".bon-preview")
+      .first()
+      .innerText();
+    expect(previewLines.split("\n")[0]).toHaveLength(48);
+    expect(previewLines).toContain(
+      "TISCH 4                                    18:42",
+    );
     await expect(
       window.locator("input[name='setupBonLayoutProfile'][value='compact']"),
     ).toBeChecked();

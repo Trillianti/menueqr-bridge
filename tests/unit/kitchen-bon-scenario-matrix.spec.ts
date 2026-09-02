@@ -82,7 +82,7 @@ describe("real kitchen-order scenario matrix", () => {
         },
         configuration,
       );
-      const width = configuration.paperWidthMm === 82 ? 34 : 32;
+      const width = configuration.paperWidthMm === 82 ? 50 : 48;
 
       expect(output.length).toBeGreaterThan(20);
       expect(output.every((line) => line.length <= width)).toBe(true);
@@ -157,7 +157,7 @@ describe("real kitchen-order scenario matrix", () => {
     ["control sequences", "Ohne\u0000 Zwiebeln\u001b[2J", "OHNE ZWIEBELN"],
     ["emoji", "Sehr heiß 🔥 und vegan 🌱", "SEHR HEISS ? UND VEGAN ?"],
     ["Cyrillic", "без лука", "??? ????"],
-    ["unbroken token", "A".repeat(600), "A".repeat(28)],
+    ["unbroken token", "A".repeat(600), "A".repeat(44)],
   ])("handles %s safely", (_name, note, expected) => {
     const output = lines({
       ...baseJob,
@@ -168,7 +168,7 @@ describe("real kitchen-order scenario matrix", () => {
     expect(text).not.toMatch(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/);
     if (expected === null) expect(text).not.toContain("ANMERKUNG:");
     else expect(text).toContain(expected);
-    expect(output.every((line) => line.length <= 32)).toBe(true);
+    expect(output.every((line) => line.length <= 48)).toBe(true);
   });
 
   it("uses Vienna local time deterministically across the DST fallback", () => {
@@ -180,9 +180,9 @@ describe("real kitchen-order scenario matrix", () => {
       ...baseJob,
       createdAt: "2026-10-25T01:30:00.000Z",
     });
-    expect(beforeFallback).toContain("TISCH 12                   02:30");
-    expect(afterFallback).toContain("TISCH 12                   02:30");
-    expect(beforeFallback).toContain("Bestellung #4711        25.10.26");
+    expect(beforeFallback).toContain("TISCH 12                                   02:30");
+    expect(afterFallback).toContain("TISCH 12                                   02:30");
+    expect(beforeFallback).toContain("Bestellung #4711                        25.10.26");
   });
 
   it("uses the restaurant time zone from the job when no local override exists", () => {
@@ -194,7 +194,7 @@ describe("real kitchen-order scenario matrix", () => {
       },
       { timeZone: undefined },
     );
-    expect(output).toContain("TISCH 12                   15:30");
+    expect(output).toContain("TISCH 12                                   15:30");
   });
 
   it("keeps normal and reprint output distinct only through the required marker", () => {
@@ -304,7 +304,7 @@ describe("real kitchen-order scenario matrix", () => {
           const profileOptions = { ...configuration, layoutProfile };
           const renderOptions = options(profileOptions);
           const visible = lines(scenario, profileOptions);
-          const width = configuration.paperWidthMm === 82 ? 34 : 32;
+          const width = configuration.paperWidthMm === 82 ? 50 : 48;
           const first = renderKitchenBon(scenario, renderOptions);
           const second = renderKitchenBon(scenario, renderOptions);
           const visibleText = visible.join("\n");

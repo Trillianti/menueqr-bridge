@@ -64,36 +64,36 @@ function lines(job: unknown = sampleJob, overrides = {}) {
 
 describe("kitchen bon renderer", () => {
   it("matches the required 80 mm acceptance sample exactly", () => {
-    expect(lines().join("\n")).toBe(`================================
-        WEINGUT JÄCKEL
-          BESTELLUNG
-================================
+    expect(lines().join("\n")).toBe(`================================================
+                WEINGUT JÄCKEL
+                  BESTELLUNG
+================================================
 
-TISCH 4                    18:42
-Bestellung #1048        23.08.26
+TISCH 4                                    18:42
+Bestellung #1048                        23.08.26
 
---------------------------------
+------------------------------------------------
 2 x Schnitzel
-    je 18,00 €           36,00 €
+    je 18,00 €                           36,00 €
 
 1 x Beilagensalat
-    je 7,50 €             7,50 €
+    je 7,50 €                             7,50 €
 
 2 x Traubensaft
-    je 4,20 €             8,40 €
---------------------------------
+    je 4,20 €                             8,40 €
+------------------------------------------------
 
 ANMERKUNG:
 SCHNITZEL OHNE ZWIEBELN
 
---------------------------------
-GESAMT:                  51,90 €
-================================`);
+------------------------------------------------
+GESAMT:                                  51,90 €
+================================================`);
   });
 
   it("renders a normal order without a reprint marker", () => {
     const output = lines({ ...sampleJob, notes: null });
-    expect(output[0]).toBe("================================");
+    expect(output[0]).toBe("=".repeat(48));
     expect(output).not.toContain("******* NACHDRUCK *******");
     expect(output).toContain("2 x Schnitzel");
   });
@@ -109,10 +109,10 @@ GESAMT:                  51,90 €
     );
     const text = output.join("\n");
     expect(output.slice(0, 4)).toEqual([
-      "================================",
-      "TISCH 4                    18:42",
+      "=".repeat(48),
+      "TISCH 4                                    18:42",
       "Bestellung #1048",
-      "================================",
+      "=".repeat(48),
     ]);
     expect(text).toContain("2 x Schnitzel");
     expect(text).toContain("    OHNE ZWIEBELN");
@@ -138,7 +138,7 @@ GESAMT:                  51,90 €
     expect(lines(sampleJob, { layoutProfile: "detailed" })).toEqual(lines());
     expect(
       lines(sampleJob, { layoutProfile: "detailed" }).join("\n"),
-    ).toContain("GESAMT:                  51,90 €");
+    ).toContain("GESAMT:                                  51,90 €");
   });
 
   it("renders order and item notes in an uppercase kitchen hierarchy", () => {
@@ -183,7 +183,7 @@ GESAMT:                  51,90 €
         expect.stringMatching(/^    /),
       ]),
     );
-    expect(output.every((line) => line.length <= 32)).toBe(true);
+    expect(output.every((line) => line.length <= 48)).toBe(true);
   });
 
   it("wraps long notes without clipping or control-byte injection", () => {
@@ -194,7 +194,7 @@ GESAMT:                  51,90 €
     });
     expect(output.join("\n")).toContain("ALLERGIE GEGEN ZWIEBELN");
     expect(output.join("\n")).not.toContain("\u001b");
-    expect(output.every((line) => line.length <= 32)).toBe(true);
+    expect(output.every((line) => line.length <= 48)).toBe(true);
   });
 
   it("preserves supported German characters and transliterates unsupported currency", () => {
@@ -227,7 +227,7 @@ GESAMT:                  51,90 €
       notes: null,
       items: withoutReprint.items,
     });
-    expect(output[0]).toBe("================================");
+    expect(output[0]).toBe("=".repeat(48));
     expect(output).not.toContain("ANMERKUNG:");
   });
 
@@ -488,8 +488,8 @@ GESAMT:                  51,90 €
 
   it("respects the configured 82 mm line width", () => {
     const output = lines(sampleJob, { paperWidthMm: 82 });
-    expect(output[0]).toBe("=".repeat(34));
-    expect(output.every((line) => line.length <= 34)).toBe(true);
+    expect(output[0]).toBe("=".repeat(50));
+    expect(output.every((line) => line.length <= 50)).toBe(true);
   });
 
   it("generates identical bytes for identical input and configuration", () => {

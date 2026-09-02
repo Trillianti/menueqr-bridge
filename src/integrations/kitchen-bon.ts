@@ -128,7 +128,7 @@ export function renderKitchenBonLines(
   >,
 ): string[] {
   const document = buildBonDocument(payload, options.timeZone);
-  const width = options.paperWidthMm === 82 ? 34 : 32;
+  const width = options.paperWidthMm === 82 ? 50 : 48;
   return documentLines(
     document,
     width,
