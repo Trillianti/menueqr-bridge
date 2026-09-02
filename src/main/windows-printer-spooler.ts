@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 
 import type {
+  WindowsPrintOptions,
   WindowsPrinterSpooler,
   WindowsPrinterSummary,
 } from "../integrations/printers/star-tsp1000-lan/star-tsp1000-lan";
@@ -31,7 +32,132 @@ $ErrorActionPreference = 'Stop'
 $printerName = $env:MENUEQR_WINDOWS_PRINTER_NAME
 $printer = Get-Printer -Name $printerName -ErrorAction Stop
 $text = [Console]::In.ReadToEnd()
-$text | Out-Printer -Name $printer.Name
+$paperWidthMm = 0
+$copies = 0
+if (-not [int]::TryParse($env:MENUEQR_WINDOWS_PAPER_WIDTH_MM, [ref]$paperWidthMm) -or $paperWidthMm -notin @(80, 82)) {
+  throw 'WINDOWS_PRINT_INVALID_PAPER_WIDTH'
+}
+if (-not [int]::TryParse($env:MENUEQR_WINDOWS_COPIES, [ref]$copies) -or $copies -notin @(1, 2)) {
+  throw 'WINDOWS_PRINT_INVALID_COPIES'
+}
+
+Add-Type -AssemblyName System.Drawing
+
+$allLines = @($text -split "\\r?\\n")
+$lineCount = $allLines.Count
+while ($lineCount -gt 0 -and $allLines[$lineCount - 1] -eq '') {
+  $lineCount -= 1
+}
+if ($lineCount -le 0) {
+  throw 'WINDOWS_PRINT_EMPTY'
+}
+$lines = @($allLines | Select-Object -First $lineCount)
+$columns = if ($paperWidthMm -eq 82) { 50 } else { 48 }
+$requestedWidth = [int][Math]::Round(($paperWidthMm / 25.4) * 100.0)
+# Star drivers cut at page boundaries. A receipt-sized custom page prevents the
+# default Windows text pipeline from adding A4-like margins and a long blank tail.
+$requestedHeight = [int][Math]::Min(32760, [Math]::Max(100, ($lineCount * 14) + 24))
+
+$document = [System.Drawing.Printing.PrintDocument]::new()
+$document.DocumentName = 'MenüQR Küchenbon'
+$document.PrintController = [System.Drawing.Printing.StandardPrintController]::new()
+$document.PrinterSettings.PrinterName = $printer.Name
+if (-not $document.PrinterSettings.IsValid) {
+  throw 'WINDOWS_PRINTER_NOT_FOUND'
+}
+$document.PrinterSettings.Copies = 1
+$document.OriginAtMargins = $false
+$document.DefaultPageSettings.Margins = [System.Drawing.Printing.Margins]::new(0, 0, 0, 0)
+$document.DefaultPageSettings.Color = $false
+$document.DefaultPageSettings.Landscape = $false
+$document.DefaultPageSettings.PaperSize = [System.Drawing.Printing.PaperSize]::new(
+  "MenueQR $paperWidthMm mm",
+  $requestedWidth,
+  $requestedHeight
+)
+
+$state = @{ CopyIndex = 0 }
+$handler = [System.Drawing.Printing.PrintPageEventHandler]{
+  param($sender, $eventArgs)
+
+  $graphics = $eventArgs.Graphics
+  $graphics.PageUnit = [System.Drawing.GraphicsUnit]::Display
+  $graphics.TextRenderingHint = [System.Drawing.Text.TextRenderingHint]::SingleBitPerPixelGridFit
+  $graphics.TranslateTransform(
+    [single](-$eventArgs.PageSettings.HardMarginX),
+    [single](-$eventArgs.PageSettings.HardMarginY)
+  )
+
+  $pageWidth = [single]$eventArgs.PageBounds.Width
+  $targetWidth = [single][Math]::Min($pageWidth, $requestedWidth)
+  $pageLeft = [single][Math]::Max(0, ($pageWidth - $targetWidth) / 2.0)
+  $pageCenter = [single]($pageLeft + ($targetWidth / 2.0))
+  $printable = $eventArgs.PageSettings.PrintableArea
+  $printableLeft = [single][Math]::Max($pageLeft, $printable.Left)
+  $printableRight = [single][Math]::Min($pageLeft + $targetWidth, $printable.Right)
+  $symmetricHalfWidth = [single][Math]::Min(
+    $pageCenter - $printableLeft,
+    $printableRight - $pageCenter
+  )
+  if ($symmetricHalfWidth -le 4) {
+    throw 'WINDOWS_PRINTABLE_AREA_TOO_NARROW'
+  }
+
+  $sidePadding = [single][Math]::Max(1, [Math]::Min(4, $symmetricHalfWidth * 0.02))
+  $drawLeft = [single]($pageCenter - $symmetricHalfWidth + $sidePadding)
+  $drawWidth = [single](($symmetricHalfWidth * 2.0) - ($sidePadding * 2.0))
+  $drawTop = [single][Math]::Max($printable.Top + 3, 3)
+
+  $format = [System.Drawing.StringFormat]::GenericTypographic.Clone()
+  $format.FormatFlags = $format.FormatFlags -bor [System.Drawing.StringFormatFlags]::NoWrap -bor [System.Drawing.StringFormatFlags]::MeasureTrailingSpaces
+  $format.Trimming = [System.Drawing.StringTrimming]::None
+  $probeFont = [System.Drawing.Font]::new(
+    'Consolas',
+    10,
+    [System.Drawing.FontStyle]::Regular,
+    [System.Drawing.GraphicsUnit]::Point
+  )
+  try {
+    $probe = '0' * $columns
+    $probeSize = $graphics.MeasureString($probe, $probeFont, 10000, $format)
+    $fontSize = [single][Math]::Max(
+      6,
+      [Math]::Min(11, $probeFont.Size * ($drawWidth / $probeSize.Width) * 0.985)
+    )
+  } finally {
+    $probeFont.Dispose()
+  }
+
+  $font = [System.Drawing.Font]::new(
+    'Consolas',
+    $fontSize,
+    [System.Drawing.FontStyle]::Regular,
+    [System.Drawing.GraphicsUnit]::Point
+  )
+  try {
+    $lineHeight = [single]($font.GetHeight($graphics) * 1.08)
+    $y = $drawTop
+    foreach ($line in $lines) {
+      $bounds = [System.Drawing.RectangleF]::new($drawLeft, $y, $drawWidth, $lineHeight)
+      $graphics.DrawString($line, $font, [System.Drawing.Brushes]::Black, $bounds, $format)
+      $y += $lineHeight
+    }
+  } finally {
+    $font.Dispose()
+    $format.Dispose()
+  }
+
+  $state.CopyIndex += 1
+  $eventArgs.HasMorePages = $state.CopyIndex -lt $copies
+}
+
+$document.add_PrintPage($handler)
+try {
+  $document.Print()
+} finally {
+  $document.remove_PrintPage($handler)
+  $document.Dispose()
+}
 `;
 
 export class PowerShellWindowsPrinterSpooler
@@ -99,6 +225,7 @@ export class PowerShellWindowsPrinterSpooler
   async printText(
     printerName: string,
     text: string,
+    options: WindowsPrintOptions,
     signal: AbortSignal,
   ): Promise<void> {
     const startedAt = Date.now();
@@ -108,16 +235,28 @@ export class PowerShellWindowsPrinterSpooler
       details: {
         characters: text.length,
         lines: text.split(/\r?\n/).length,
+        paperWidthMm: options.paperWidthMm,
+        copies: options.copies,
       },
     });
     this.assertWindows();
-    if (!safePrinterName(printerName) || !text || text.length > 64 * 1024) {
+    if (
+      !safePrinterName(printerName) ||
+      !text ||
+      text.length > 64 * 1024 ||
+      ![80, 82].includes(options.paperWidthMm) ||
+      ![1, 2].includes(options.copies)
+    ) {
       throw windowsPrinterError("WINDOWS_PRINT_INVALID");
     }
     try {
       await this.runPowerShell(PRINT_TEXT_SCRIPT, {
         input: text,
-        environment: { MENUEQR_WINDOWS_PRINTER_NAME: printerName },
+        environment: {
+          MENUEQR_WINDOWS_PRINTER_NAME: printerName,
+          MENUEQR_WINDOWS_PAPER_WIDTH_MM: String(options.paperWidthMm),
+          MENUEQR_WINDOWS_COPIES: String(options.copies),
+        },
         signal,
       });
       void this.emit({

@@ -22,6 +22,7 @@ type PrinterFormConfiguration = {
   writeTimeoutMs: number;
   cutAfterPrint: boolean;
   bonLayoutProfile: "compact" | "kitchen" | "detailed";
+  copies: 1 | 2;
 };
 
 type WindowsPrinter = {
@@ -574,7 +575,9 @@ function renderPrinterWorkspace(): void {
       configuration.transport === "windows_spooler"
         ? `Windows · ${configuration.windowsPrinterName ?? "Drucker nicht gewählt"}`
         : `${configuration.host}:${configuration.port} · ${configuration.commandMode === "star_line" ? "Star Line" : "ESC/POS"}`;
-    meta.textContent = `${connectionLabel} · ${configuration.paperWidthMm} mm · ${layoutLabel}${printer.active ? " · Aktiv" : ""}`;
+    const copiesLabel =
+      configuration.copies === 2 ? "2 Bons (mit Kopie)" : "1 Bon";
+    meta.textContent = `${connectionLabel} · ${configuration.paperWidthMm} mm · ${layoutLabel} · ${copiesLabel}${printer.active ? " · Aktiv" : ""}`;
     meta.setAttribute("data-testid", "saved-printer-address");
     copy.append(name, meta);
     primary.append(icon, copy);
@@ -1095,6 +1098,7 @@ function printerFormData(
     bonLayoutProfile: String(
       value.get("bonLayoutProfile") ?? selectedSetupBonLayout(),
     ) as "compact" | "kitchen" | "detailed",
+    copies: Number(value.get("copies") ?? 1) as 1 | 2,
   };
 }
 

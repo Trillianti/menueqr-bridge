@@ -152,6 +152,7 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     await expect(
       window.locator("input[name='bonLayoutProfile'][value='compact']"),
     ).toBeChecked();
+    await expect(window.getByTestId("printer-details-copies")).toHaveValue("1");
     await window
       .getByTestId("details-bon-layout")
       .locator("label", { hasText: "Vollständig" })
@@ -160,6 +161,7 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
       .getByTestId("printer-details-form")
       .locator("input[name='port']")
       .fill("9101");
+    await window.getByTestId("printer-details-copies").selectOption("2");
     await window.getByTestId("printer-details-save").click();
     await expect(window.getByTestId("printer-details-status")).toContainText(
       "Änderungen gespeichert",
@@ -170,6 +172,9 @@ test("gives a first-time user a minimal restaurant-first setup", async () => {
     );
     await expect(window.getByTestId("saved-printer-address")).toContainText(
       "Vollständig",
+    );
+    await expect(window.getByTestId("saved-printer-address")).toContainText(
+      "2 Bons (mit Kopie)",
     );
 
     await window.evaluate(() => {

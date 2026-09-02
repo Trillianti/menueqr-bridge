@@ -19,6 +19,7 @@ describe("Star TSP1000 LAN configuration", () => {
     writeTimeoutMs: 5_000,
     cutAfterPrint: true,
     bonLayoutProfile: "detailed" as const,
+    copies: 1 as const,
   };
 
   it("allows private LAN addresses and local hostnames but rejects unsafe targets", () => {
@@ -34,10 +35,11 @@ describe("Star TSP1000 LAN configuration", () => {
   });
 
   it("defaults legacy configurations to detailed and validates explicit bon layouts", () => {
-    const { bonLayoutProfile: _profile, ...legacy } = valid;
-    expect(adapter.validateConfiguration(legacy).bonLayoutProfile).toBe(
-      "detailed",
-    );
+    const { bonLayoutProfile: _profile, copies: _copies, ...legacy } = valid;
+    expect(adapter.validateConfiguration(legacy)).toMatchObject({
+      bonLayoutProfile: "detailed",
+      copies: 1,
+    });
     expect(
       adapter.validateConfiguration({
         ...valid,
@@ -49,6 +51,12 @@ describe("Star TSP1000 LAN configuration", () => {
         ...valid,
         bonLayoutProfile: "unknown",
       }),
+    ).toThrow("INVALID_CONFIGURATION");
+    expect(
+      adapter.validateConfiguration({ ...valid, copies: 2 }).copies,
+    ).toBe(2);
+    expect(() =>
+      adapter.validateConfiguration({ ...valid, copies: 3 }),
     ).toThrow("INVALID_CONFIGURATION");
   });
 
@@ -83,6 +91,7 @@ describe("Star TSP1000 LAN configuration", () => {
       transport: "windows_spooler",
       windowsPrinterName: "Star TSP1000 (TSP 1045) (Hoffest)",
       host: "",
+      copies: 2,
     });
 
     await expect(windowsAdapter.healthCheck(configuration)).resolves.toMatchObject({
@@ -109,6 +118,7 @@ describe("Star TSP1000 LAN configuration", () => {
       1,
       "Star TSP1000 (TSP 1045) (Hoffest)",
       "TISCH 4\r\n",
+      { paperWidthMm: 80, copies: 2 },
       expect.any(AbortSignal),
     );
     expect(printText.mock.calls[1]?.[1]).toContain("MENÜQR BRIDGE TEST");

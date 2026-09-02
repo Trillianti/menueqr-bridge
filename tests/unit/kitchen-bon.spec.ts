@@ -65,8 +65,8 @@ function lines(job: unknown = sampleJob, overrides = {}) {
 describe("kitchen bon renderer", () => {
   it("matches the required 80 mm acceptance sample exactly", () => {
     expect(lines().join("\n")).toBe(`================================================
-                WEINGUT JÄCKEL
-                  BESTELLUNG
+                 WEINGUT JÄCKEL
+                   BESTELLUNG
 ================================================
 
 TISCH 4                                    18:42

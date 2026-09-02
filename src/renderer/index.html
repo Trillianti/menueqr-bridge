@@ -487,8 +487,8 @@ Bestellung #1048
 1 x Beilagensalat
 ================================================</span></span></label>
                 <label class="bon-layout-option"><input type="radio" name="setupBonLayoutProfile" value="kitchen" /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Küche Plus</strong></span><span class="bon-preview">================================================
-                WEINGUT JÄCKEL
-                  BESTELLUNG
+                 WEINGUT JÄCKEL
+                   BESTELLUNG
 ================================================
 TISCH 4                                    18:42
 Bestellung #1048                        23.08.26
@@ -499,8 +499,8 @@ Bestellung #1048                        23.08.26
 1 x Beilagensalat
 ================================================</span></span></label>
                 <label class="bon-layout-option"><input type="radio" name="setupBonLayoutProfile" value="detailed" /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Vollständig</strong></span><span class="bon-preview">================================================
-                WEINGUT JÄCKEL
-                  BESTELLUNG
+                 WEINGUT JÄCKEL
+                   BESTELLUNG
 ================================================
 TISCH 4                                    18:42
 Bestellung #1048                        23.08.26
@@ -528,6 +528,7 @@ GESAMT:                                  43,50 €
                     <label data-transport-field="network">Port<input name="port" type="number" value="9100" min="1" max="65535" required /></label>
                     <label data-transport-field="network">Steuermodus<select name="commandMode"><option value="star_line">Star Line</option><option value="esc_pos">ESC/POS</option></select></label>
                     <label>Papierbreite<select name="paperWidthMm"><option value="80">80 mm</option><option value="82">82 mm</option></select></label>
+                    <label>Anzahl Bons<select name="copies"><option value="1">1 Bon</option><option value="2">2 Bons (Original + Kopie)</option></select></label>
                     <label data-transport-field="network">Zeichensatz<select name="encoding"><option value="cp437">CP437</option><option value="cp850">CP850</option><option value="windows1252">Windows-1252</option></select></label>
                     <label data-transport-field="network">Verbindungszeit (ms)<input name="connectTimeoutMs" type="number" value="3000" min="250" max="30000" required /></label>
                     <label data-transport-field="network">Schreibzeit (ms)<input name="writeTimeoutMs" type="number" value="5000" min="250" max="30000" required /></label>
@@ -583,8 +584,8 @@ Bestellung #1048
 1 x Beilagensalat
 ================================================</span></span></label>
                   <label class="bon-layout-option"><input type="radio" name="bonLayoutProfile" value="kitchen" /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Küche Plus</strong></span><span class="bon-preview">================================================
-                WEINGUT JÄCKEL
-                  BESTELLUNG
+                 WEINGUT JÄCKEL
+                   BESTELLUNG
 ================================================
 TISCH 4                                    18:42
 Bestellung #1048                        23.08.26
@@ -595,8 +596,8 @@ Bestellung #1048                        23.08.26
 1 x Beilagensalat
 ================================================</span></span></label>
                   <label class="bon-layout-option"><input type="radio" name="bonLayoutProfile" value="detailed" /><span class="bon-layout-card"><span class="bon-layout-card-header"><strong>Vollständig</strong></span><span class="bon-preview">================================================
-                WEINGUT JÄCKEL
-                  BESTELLUNG
+                 WEINGUT JÄCKEL
+                   BESTELLUNG
 ================================================
 TISCH 4                                    18:42
 Bestellung #1048                        23.08.26
@@ -618,6 +619,7 @@ GESAMT:                                  43,50 €
                 <label data-transport-field="network">Port<input name="port" type="number" min="1" max="65535" required /></label>
                 <label data-transport-field="network">Steuermodus<select name="commandMode"><option value="star_line">Star Line</option><option value="esc_pos">ESC/POS</option></select></label>
                 <label>Papierbreite<select name="paperWidthMm"><option value="80">80 mm</option><option value="82">82 mm</option></select></label>
+                <label>Anzahl Bons<select name="copies" data-testid="printer-details-copies"><option value="1">1 Bon</option><option value="2">2 Bons (Original + Kopie)</option></select><span class="field-helper">Bei zwei Bons wird jede Bestellung zweimal als eigener Bon gedruckt.</span></label>
                 <label data-transport-field="network">Zeichensatz<select name="encoding"><option value="cp437">CP437</option><option value="cp850">CP850</option><option value="windows1252">Windows-1252</option></select></label>
                 <label data-transport-field="network">Verbindungszeit (ms)<input name="connectTimeoutMs" type="number" min="250" max="30000" required /></label>
                 <label data-transport-field="network">Schreibzeit (ms)<input name="writeTimeoutMs" type="number" min="250" max="30000" required /></label>

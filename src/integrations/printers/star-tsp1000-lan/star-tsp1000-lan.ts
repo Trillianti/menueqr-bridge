@@ -36,8 +36,14 @@ export type WindowsPrinterSpooler = {
   printText(
     printerName: string,
     text: string,
+    options: WindowsPrintOptions,
     signal: AbortSignal,
   ): Promise<void>;
+};
+
+export type WindowsPrintOptions = {
+  paperWidthMm: 80 | 82;
+  copies: 1 | 2;
 };
 
 export type StarTsp1000LanConfiguration = {
@@ -52,6 +58,7 @@ export type StarTsp1000LanConfiguration = {
   writeTimeoutMs: number;
   cutAfterPrint: boolean;
   bonLayoutProfile: BonLayoutProfile;
+  copies: 1 | 2;
 };
 
 export type SocketFactory = () => Socket;
@@ -86,6 +93,7 @@ const DEFAULTS: StarTsp1000LanConfiguration = {
   // Preserve the established receipt for configurations saved by older builds.
   // New setup flows submit the recommended compact profile explicitly.
   bonLayoutProfile: "detailed",
+  copies: 1,
 };
 const DISCOVERY_PORT = 9100;
 const DISCOVERY_TIMEOUT_MS = 350;
@@ -171,6 +179,7 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
       writeTimeoutMs: input.writeTimeoutMs ?? DEFAULTS.writeTimeoutMs,
       cutAfterPrint: input.cutAfterPrint ?? DEFAULTS.cutAfterPrint,
       bonLayoutProfile: input.bonLayoutProfile ?? DEFAULTS.bonLayoutProfile,
+      copies: input.copies ?? DEFAULTS.copies,
     };
     if (
       !["raw_tcp", "windows_spooler"].includes(config.transport) ||
@@ -188,7 +197,8 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
       !isTimeout(config.connectTimeoutMs) ||
       !isTimeout(config.writeTimeoutMs) ||
       typeof config.cutAfterPrint !== "boolean" ||
-      !["compact", "kitchen", "detailed"].includes(config.bonLayoutProfile)
+      !["compact", "kitchen", "detailed"].includes(config.bonLayoutProfile) ||
+      ![1, 2].includes(config.copies)
     ) {
       throw new Error("INVALID_CONFIGURATION");
     }
@@ -215,6 +225,7 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
       writeTimeoutMs: config.writeTimeoutMs,
       cutAfterPrint: config.cutAfterPrint,
       bonLayoutProfile: config.bonLayoutProfile,
+      copies: config.copies,
     };
   }
 
@@ -314,13 +325,20 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
         await this.requireWindowsSpooler().printText(
           config.windowsPrinterName!,
           Buffer.from(payload).toString("utf8"),
+          {
+            paperWidthMm: config.paperWidthMm,
+            copies: config.copies,
+          },
           signal,
         );
         const result = {
           status: "succeeded",
           code: "WINDOWS_PRINT_JOB_ACCEPTED",
           message: "Windows accepted the print job.",
-          metadata: { transport: "windows_spooler" },
+          metadata: {
+            transport: "windows_spooler",
+            copies: config.copies,
+          },
         } as const;
         void this.emit({
           event: "printer.execution_completed",
@@ -331,12 +349,18 @@ export class StarTsp1000LanAdapter implements IntegrationAdapter<
         });
         return result;
       }
-      await this.writeBuffer(config, Buffer.from(payload), signal);
+      const printPayload = Buffer.concat(
+        Array.from({ length: config.copies }, () => Buffer.from(payload)),
+      );
+      await this.writeBuffer(config, printPayload, signal);
       const result = {
         status: "succeeded",
         code: "PRINT_WRITTEN",
         message: "Printer write completed.",
-        metadata: { bytesWritten: payload.byteLength },
+        metadata: {
+          bytesWritten: printPayload.byteLength,
+          copies: config.copies,
+        },
       } as const;
       void this.emit({
         event: "printer.execution_completed",

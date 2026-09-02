@@ -30,7 +30,7 @@ describe("Star TSP1000 LAN transport", () => {
     );
   });
 
-  it("writes exactly one complete buffer to a private-LAN fake printer", async () => {
+  it("writes two requested copies in one complete LAN job", async () => {
     const adapter = new StarTsp1000LanAdapter(undefined, true, async () => [
       { address: "127.0.0.1", family: 4 },
     ]);
@@ -46,13 +46,14 @@ describe("Star TSP1000 LAN transport", () => {
       writeTimeoutMs: 1_000,
       cutAfterPrint: true,
       bonLayoutProfile: "detailed" as const,
+      copies: 2 as const,
     };
     const payload = Buffer.from("COMPLETE-TEST-BUFFER");
     await expect(
       adapter.execute(payload, config, new AbortController().signal),
     ).resolves.toMatchObject({ status: "succeeded", code: "PRINT_WRITTEN" });
     await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(Buffer.concat(received)).toEqual(payload);
+    expect(Buffer.concat(received)).toEqual(Buffer.concat([payload, payload]));
     expect(completedClientWrites).toBe(1);
   });
 
@@ -74,6 +75,7 @@ describe("Star TSP1000 LAN transport", () => {
       writeTimeoutMs: 1_000,
       cutAfterPrint: true,
       bonLayoutProfile: "detailed" as const,
+      copies: 1 as const,
     };
     await expect(
       adapter.execute(Buffer.from("x"), config, controller.signal),

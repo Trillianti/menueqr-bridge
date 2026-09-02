@@ -65,6 +65,7 @@ type BridgeLocalPrinterConfiguration = {
   writeTimeoutMs: number;
   cutAfterPrint: boolean;
   bonLayoutProfile: "compact" | "kitchen" | "detailed";
+  copies: 1 | 2;
 };
 
 type BridgePrinterSnapshot = {

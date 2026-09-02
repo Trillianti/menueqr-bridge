@@ -35,8 +35,15 @@ describe("Windows printer spooler", () => {
     await spooler.printText(
       "Star TSP1000 (TSP 1045) (Hoffest)",
       "TISCH 4\r\n2 x Schnitzel\r\n",
+      { paperWidthMm: 80, copies: 2 },
       signal,
     );
+    const script = runner.mock.calls[0]?.[0] as string;
+    expect(script).toContain("PrintDocument");
+    expect(script).toContain("PrintableArea");
+    expect(script).toContain("symmetricHalfWidth");
+    expect(script).toContain("HasMorePages");
+    expect(script).not.toContain("Out-Printer");
     expect(runner).toHaveBeenCalledWith(
       expect.not.stringContaining("Hoffest"),
       {
@@ -44,6 +51,8 @@ describe("Windows printer spooler", () => {
         environment: {
           MENUEQR_WINDOWS_PRINTER_NAME:
             "Star TSP1000 (TSP 1045) (Hoffest)",
+          MENUEQR_WINDOWS_PAPER_WIDTH_MM: "80",
+          MENUEQR_WINDOWS_COPIES: "2",
         },
         signal,
       },
@@ -51,7 +60,12 @@ describe("Windows printer spooler", () => {
     expect(onEvent).toHaveBeenCalledWith(
       expect.objectContaining({
         event: "windows_spooler.print_started",
-        details: expect.objectContaining({ characters: 24, lines: 3 }),
+        details: expect.objectContaining({
+          characters: 24,
+          lines: 3,
+          paperWidthMm: 80,
+          copies: 2,
+        }),
       }),
     );
     expect(onEvent).toHaveBeenCalledWith(
@@ -60,6 +74,20 @@ describe("Windows printer spooler", () => {
         code: "WINDOWS_PRINT_JOB_ACCEPTED",
       }),
     );
+  });
+
+  it("rejects unsupported paper or copy settings before starting PowerShell", async () => {
+    const runner = jest.fn().mockResolvedValue("");
+    const spooler = new PowerShellWindowsPrinterSpooler(runner, "win32");
+    await expect(
+      spooler.printText(
+        "Star TSP1000",
+        "TEST\r\n",
+        { paperWidthMm: 80, copies: 3 as never },
+        new AbortController().signal,
+      ),
+    ).rejects.toMatchObject({ code: "WINDOWS_PRINT_INVALID" });
+    expect(runner).not.toHaveBeenCalled();
   });
 
   it("fails closed outside Windows", async () => {

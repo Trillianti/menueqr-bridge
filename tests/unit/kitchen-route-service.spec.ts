@@ -35,6 +35,7 @@ describe("kitchen route service", () => {
           writeTimeoutMs: input.writeTimeoutMs ?? 5000,
           cutAfterPrint: input.cutAfterPrint ?? true,
           bonLayoutProfile: input.bonLayoutProfile ?? "detailed",
+          copies: input.copies ?? 1,
         };
       },
       redactConfiguration: () => ({ adapter: "test" }),
@@ -85,6 +86,7 @@ describe("kitchen route service", () => {
     writeTimeoutMs: 5000,
     cutAfterPrint: true,
     bonLayoutProfile: "detailed" as const,
+    copies: 1 as const,
   };
 
   it("keeps an unconfigured route out of job polling", async () => {
