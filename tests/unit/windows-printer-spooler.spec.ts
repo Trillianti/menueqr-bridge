@@ -42,6 +42,8 @@ describe("Windows printer spooler", () => {
     expect(script).toContain("PrintDocument");
     expect(script).toContain("PrintableArea");
     expect(script).toContain("symmetricHalfWidth");
+    expect(script).toContain("$rightSafetyColumns = 2");
+    expect(script).toContain("'0' * ($columns + $rightSafetyColumns)");
     expect(script).toContain("$eventArgs.HasMorePages = $false");
     expect(script).toContain(
       "for ($copyIndex = 0; $copyIndex -lt $copies; $copyIndex += 1)",

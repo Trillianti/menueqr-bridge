@@ -53,6 +53,10 @@ if ($lineCount -le 0) {
 }
 $lines = @($allLines | Select-Object -First $lineCount)
 $columns = if ($paperWidthMm -eq 82) { 50 } else { 48 }
+# Keep the 48/50-column receipt layout unchanged, but size the font as if two
+# additional columns existed. This moves right-aligned dates, times, prices and
+# currencies safely inside printer drivers that over-report the right edge.
+$rightSafetyColumns = 2
 $requestedWidth = [int][Math]::Round(($paperWidthMm / 25.4) * 100.0)
 # A receipt-sized custom page prevents the default Windows text pipeline from
 # adding A4-like margins and a long blank tail.
@@ -117,7 +121,7 @@ $handler = [System.Drawing.Printing.PrintPageEventHandler]{
     [System.Drawing.GraphicsUnit]::Point
   )
   try {
-    $probe = '0' * $columns
+    $probe = '0' * ($columns + $rightSafetyColumns)
     $probeSize = $graphics.MeasureString($probe, $probeFont, 10000, $format)
     $fontSize = [single][Math]::Max(
       6,
