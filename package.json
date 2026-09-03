@@ -40,7 +40,7 @@
     "electron-builder": "^26.15.3",
     "jest": "^30.4.2",
     "ts-jest": "^29.4.12",
-    "typescript": "^5.9.3"
+    "typescript": "^7.0.2"
   },
   "dependencies": {
     "electron-updater": "^6.8.9"
