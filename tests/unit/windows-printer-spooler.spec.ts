@@ -42,7 +42,11 @@ describe("Windows printer spooler", () => {
     expect(script).toContain("PrintDocument");
     expect(script).toContain("PrintableArea");
     expect(script).toContain("symmetricHalfWidth");
-    expect(script).toContain("HasMorePages");
+    expect(script).toContain("$eventArgs.HasMorePages = $false");
+    expect(script).toContain(
+      "for ($copyIndex = 0; $copyIndex -lt $copies; $copyIndex += 1)",
+    );
+    expect(script).not.toContain("$state.CopyIndex");
     expect(script).not.toContain("Out-Printer");
     expect(runner).toHaveBeenCalledWith(
       expect.not.stringContaining("Hoffest"),

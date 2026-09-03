@@ -54,8 +54,8 @@ if ($lineCount -le 0) {
 $lines = @($allLines | Select-Object -First $lineCount)
 $columns = if ($paperWidthMm -eq 82) { 50 } else { 48 }
 $requestedWidth = [int][Math]::Round(($paperWidthMm / 25.4) * 100.0)
-# Star drivers cut at page boundaries. A receipt-sized custom page prevents the
-# default Windows text pipeline from adding A4-like margins and a long blank tail.
+# A receipt-sized custom page prevents the default Windows text pipeline from
+# adding A4-like margins and a long blank tail.
 $requestedHeight = [int][Math]::Min(32760, [Math]::Max(100, ($lineCount * 14) + 24))
 
 $document = [System.Drawing.Printing.PrintDocument]::new()
@@ -76,7 +76,6 @@ $document.DefaultPageSettings.PaperSize = [System.Drawing.Printing.PaperSize]::n
   $requestedHeight
 )
 
-$state = @{ CopyIndex = 0 }
 $handler = [System.Drawing.Printing.PrintPageEventHandler]{
   param($sender, $eventArgs)
 
@@ -147,13 +146,17 @@ $handler = [System.Drawing.Printing.PrintPageEventHandler]{
     $format.Dispose()
   }
 
-  $state.CopyIndex += 1
-  $eventArgs.HasMorePages = $state.CopyIndex -lt $copies
+  $eventArgs.HasMorePages = $false
 }
 
 $document.add_PrintPage($handler)
 try {
-  $document.Print()
+  # The Star driver cuts at the end of a Windows print job, not reliably at a
+  # page boundary. Submit every requested bon as its own job so two copies are
+  # physically separated by the cutter.
+  for ($copyIndex = 0; $copyIndex -lt $copies; $copyIndex += 1) {
+    $document.Print()
+  }
 } finally {
   $document.remove_PrintPage($handler)
   $document.Dispose()
